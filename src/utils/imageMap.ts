@@ -1,0 +1,66 @@
+// Map string paths to local require assets
+export const IMAGE_MAP: Record<string, any> = {
+    // Vendors
+    '/assets/Tenderchops.jpg': require('../../assets/Tenderchops.jpg'),
+    '/assets/USAJ.jpg': require('../../assets/USAJ.jpg'),
+    '/assets/Usaj Mutton.jpg': require('../../assets/Usaj Mutton.jpg'),
+    '/assets/Sea2Home.jpg': require('../../assets/Sea2Home.jpg'),
+    '/assets/Alif.jpg': require('../../assets/Alif.jpg'),
+    '/assets/Azhi.jpg': require('../../assets/Azhi.jpg'),
+    '/assets/KAK.png': require('../../assets/KAK.png'),
+    '/assets/MalabarFresh.png': require('../../assets/MalabarFresh.png'),
+    '/assets/Pkd Stall.jpg': require('../../assets/Pkd Stall.jpg'),
+    '/assets/Al-habibi.jpg': require('../../assets/Al-habibi.jpg'),
+
+    // Seafood
+    '/assets/Tiger prawns.png': require('../../assets/Tiger prawns.png'),
+    '/assets/White pomfret.png': require('../../assets/White pomfret.png'),
+    '/assets/salmon.jpg': require('../../assets/salmon.jpg'),
+    '/assets/Kera fish.png': require('../../assets/Kera fish.png'),
+    '/assets/Mackerel.png': require('../../assets/Mackerel.png'),
+    '/assets/Squid.png': require('../../assets/Squid.png'),
+    '/assets/Sardine.png': require('../../assets/Sardine.png'),
+    '/assets/Pearl spot.png': require('../../assets/Pearl spot.png'),
+    '/assets/Anchovy.png': require('../../assets/Anchovy.png'),
+    '/assets/Tuna fish.png': require('../../assets/Tuna fish.png'),
+    '/assets/white tuna .png': require('../../assets/white tuna .png'),
+    '/assets/Tilapia .png': require('../../assets/Tilapia .png'),
+    '/assets/Red snapper.png': require('../../assets/Red snapper.png'),
+    '/assets/White snapper.png': require('../../assets/White snapper.png'),
+    '/assets/Yellow snapper.png': require('../../assets/Yellow snapper.png'),
+    '/assets/Trevally.png': require('../../assets/Trevally.png'),
+    '/assets/White trevally.png': require('../../assets/White trevally.png'),
+    '/assets/Black pomfret.png': require('../../assets/Black pomfret.png'),
+    '/assets/Silver pomfret.png': require('../../assets/Silver pomfret.png'),
+    '/assets/Dam pomfret.png': require('../../assets/Dam pomfret.png'),
+    '/assets/Pink perch.png': require('../../assets/Pink perch.png'),
+    '/assets/Pony fish.png': require('../../assets/Pony fish.png'),
+    '/assets/boal fish.png': require('../../assets/boal fish.png'),
+    '/assets/White prawns.png': require('../../assets/White prawns.png'),
+    '/assets/white sardine.png': require('../../assets/white sardine.png'),
+
+    // Poultry
+    '/assets/Chicekn curry cut.jpg': require('../../assets/Chicekn curry cut.jpg'),
+    '/assets/chicken Breast.jpg': require('../../assets/chicken Breast.jpg'),
+    '/assets/Chicken Drumstick.jpg': require('../../assets/Chicken Drumstick.jpg'),
+    '/assets/Chicken Lolipop.jpg': require('../../assets/Chicken Lolipop.jpg'),
+    '/assets/Whole chicken.jpg': require('../../assets/Whole chicken.jpg'),
+    '/assets/Chicekn Boneless.jpg': require('../../assets/Chicekn Boneless.jpg'),
+    '/assets/Chicken Leg.jpg': require('../../assets/Chicken Leg.jpg'),
+    '/assets/Chicken Thigh.jpg': require('../../assets/Chicken Thigh.jpg'),
+    '/assets/Chicken GIzzard.jpg': require('../../assets/Chicken GIzzard.jpg'),
+    '/assets/Chicken parts.jpg': require('../../assets/Chicken parts.jpg'),
+
+    // Mutton
+    '/assets/Mutton Ribbs.jpg': require('../../assets/Mutton Ribbs.jpg'),
+    '/assets/Mutton Boneless.jpg': require('../../assets/Mutton Boneless.jpg'),
+    '/assets/Mutton Liver.jpg': require('../../assets/Mutton Liver.jpg'),
+    '/assets/Mutton Keema.jpg': require('../../assets/Mutton Keema.jpg'),
+    '/assets/Mutton paya.jpg': require('../../assets/Mutton paya.jpg'),
+    '/assets/Mutton Botty.jpg': require('../../assets/Mutton Botty.jpg'),
+    '/assets/mutton.png': require('../../assets/mutton.png'),
+
+    // Beef
+    '/assets/beef boneless.jpg': require('../../assets/beef boneless.jpg'),
+    '/assets/Beef Liver.jpg': require('../../assets/Beef Liver.jpg'),
+};
