@@ -19,7 +19,7 @@ import { useAppState } from '../../store/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = SCREEN_HEIGHT * 0.45;
+const SHEET_HEIGHT = SCREEN_HEIGHT * 0.6; // Increased to ensure it clips correctly on all devices
 
 interface Props {
     isVisible: boolean;

@@ -39,6 +39,7 @@ import {
     OrderConfirmedDetailCard,
 } from '../../components/common/OrderStageCard';
 import LocationSheet from '../../components/common/LocationSheet';
+import ProfileSheet from '../../components/common/ProfileSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +67,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const [isLocationSheetVisible, setIsLocationSheetVisible] = useState(false);
+    const [isProfileSheetVisible, setIsProfileSheetVisible] = useState(false);
     const flatListRef = useRef<FlatList>(null);
     const insets = useSafeAreaInsets();
 
@@ -522,7 +524,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                     </Text>
                 </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
+            <TouchableOpacity style={styles.profileButton} onPress={() => setIsProfileSheetVisible(true)}>
                 <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2}>
                     <Path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                     <Circle cx={12} cy={7} r={4} />
@@ -979,6 +981,12 @@ export default function ChatScreen({ navigation, route }: Props) {
             <LocationSheet
                 isVisible={isLocationSheetVisible}
                 onClose={() => setIsLocationSheetVisible(false)}
+            />
+
+            <ProfileSheet
+                isVisible={isProfileSheetVisible}
+                onClose={() => setIsProfileSheetVisible(false)}
+                onOpenLocation={() => setIsLocationSheetVisible(true)}
             />
         </GestureHandlerRootView>
     );
