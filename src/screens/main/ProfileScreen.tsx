@@ -14,6 +14,8 @@ import { useAppState } from '../../store/AppContext';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
 import * as storageService from '../../services/storage';
 import Svg, { Path, Circle } from 'react-native-svg';
+import LocationSheet from '../../components/common/LocationSheet';
+import { useState } from 'react';
 
 type Props = {
     navigation: NativeStackNavigationProp<MainStackParamList, 'Profile'>;
@@ -22,6 +24,7 @@ type Props = {
 export default function ProfileScreen({ navigation }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
+    const [isLocationSheetVisible, setIsLocationSheetVisible] = useState(false);
     const user = state.user;
 
     const handleLogout = async () => {
@@ -89,7 +92,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
                     <TouchableOpacity
                         style={styles.changeButton}
-                        onPress={() => navigation.navigate('Location')}
+                        onPress={() => setIsLocationSheetVisible(true)}
                     >
                         <Text style={styles.changeButtonText}>Change Location</Text>
                     </TouchableOpacity>
@@ -136,6 +139,11 @@ export default function ProfileScreen({ navigation }: Props) {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <LocationSheet
+                isVisible={isLocationSheetVisible}
+                onClose={() => setIsLocationSheetVisible(false)}
+            />
         </View>
     );
 }

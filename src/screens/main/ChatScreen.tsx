@@ -38,6 +38,7 @@ import {
     OrderTrackingCard,
     OrderConfirmedDetailCard,
 } from '../../components/common/OrderStageCard';
+import LocationSheet from '../../components/common/LocationSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cod' | null>(null);
     const [isFocused, setIsFocused] = useState(false);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+    const [isLocationSheetVisible, setIsLocationSheetVisible] = useState(false);
     const flatListRef = useRef<FlatList>(null);
     const insets = useSafeAreaInsets();
 
@@ -504,7 +506,7 @@ export default function ChatScreen({ navigation, route }: Props) {
 
     const renderHeader = () => (
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <TouchableOpacity style={styles.locationRow} onPress={() => navigation.navigate('Location')}>
+            <TouchableOpacity style={styles.locationRow} onPress={() => setIsLocationSheetVisible(true)}>
                 <View style={styles.locationIcon}>
                     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.brand.primary} strokeWidth={2}>
                         <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -973,6 +975,11 @@ export default function ChatScreen({ navigation, route }: Props) {
                     </Animated.View>
                 )}
             </View>
+
+            <LocationSheet
+                isVisible={isLocationSheetVisible}
+                onClose={() => setIsLocationSheetVisible(false)}
+            />
         </GestureHandlerRootView>
     );
 }
@@ -993,6 +1000,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Colors.light.border,
         ...Shadows.header,
+        zIndex: 1010,
     },
     locationRow: {
         flex: 1,
