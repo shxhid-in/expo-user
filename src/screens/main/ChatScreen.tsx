@@ -14,6 +14,7 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { FlatList } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -899,71 +900,81 @@ export default function ChatScreen({ navigation, route }: Props) {
                         </View>
                     ) : null}
 
-                    {/* Input Bar */}
-                    <Animated.View style={[
-                        styles.inputBar,
-                        {
-                            paddingBottom: isKeyboardVisible
-                                ? 8
-                                : Math.max(insets.bottom, 16)
-                        },
-                        animatedDropZoneStyle
-                    ]}>
-                        <View style={styles.inputContainer}>
-                            {/* Tags Area overlaying the input field area conceptually */}
-                            {tags.length > 0 && (
-                                <View style={styles.tagsContainer}>
-                                    {tags.map((tag, idx) => (
-                                        <View key={idx} style={styles.tag}>
-                                            <Image source={resolveImageSource(tag.image)} style={styles.tagImage} />
-                                            <Text style={styles.tagText} numberOfLines={1}>{tag.vendorName}</Text>
-                                            <TouchableOpacity onPress={() => removeTag(idx)} style={styles.removeTag}>
-                                                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
-                                                    <Path d="M18 6L6 18M6 6l12 12" />
-                                                </Svg>
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
+                    {/* Floating Input Area with Gradient Background */}
+                    <View style={styles.outerBottomContainer} pointerEvents="box-none">
+                        <LinearGradient
+                            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.98)', '#ffffff']}
+                            style={styles.bottomGradient}
+                            pointerEvents="none"
+                            locations={[0.2, 0.8, 1]}
+                        />
 
-                            <View style={styles.inputRow}>
-                                <TextInput
-                                    style={[
-                                        styles.chatInput,
-                                        isFocused && styles.chatInputFocused,
-                                        Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)
-                                    ]}
-                                    placeholder={tags.length > 0 ? "Add details..." : "Type a message or ask Ezer..."}
-                                    placeholderTextColor={Colors.light.textMuted}
-                                    value={message}
-                                    onChangeText={setMessage}
-                                    onFocus={() => setIsFocused(true)}
-                                    onBlur={() => setIsFocused(false)}
-                                    multiline
-                                    maxLength={500}
-                                    onSubmitEditing={handleSend}
-                                    selectionColor={Colors.brand.primary}
-                                    cursorColor={Colors.brand.primary}
-                                />
-                                <TouchableOpacity
-                                    style={[styles.sendButton, (message.trim() || tags.length > 0) ? styles.sendButtonActive : null]}
-                                    onPress={(message.trim() || tags.length > 0) ? handleSend : undefined}
-                                >
-                                    {(message.trim() || tags.length > 0) ? (
-                                        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
-                                            <Path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" />
-                                        </Svg>
-                                    ) : (
-                                        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={Colors.brand.primary} strokeWidth={2}>
-                                            <Path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
-                                            <Path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
-                                        </Svg>
-                                    )}
-                                </TouchableOpacity>
+                        <Animated.View style={[
+                            styles.inputBar,
+                            {
+                                paddingBottom: isKeyboardVisible
+                                    ? 8
+                                    : Math.max(insets.bottom, 10) + 10 // Lifted up as requested
+                            },
+                            animatedDropZoneStyle
+                        ]}>
+                            <View style={styles.inputContainer}>
+                                {/* Tags Area overlaying the input field area conceptually */}
+                                {tags.length > 0 && (
+                                    <View style={styles.tagsContainer}>
+                                        {tags.map((tag, idx) => (
+                                            <View key={idx} style={styles.tag}>
+                                                <Image source={resolveImageSource(tag.image)} style={styles.tagImage} />
+                                                <Text style={styles.tagText} numberOfLines={1}>{tag.vendorName}</Text>
+                                                <TouchableOpacity onPress={() => removeTag(idx)} style={styles.removeTag}>
+                                                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
+                                                        <Path d="M18 6L6 18M6 6l12 12" />
+                                                    </Svg>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <View style={styles.inputRow}>
+                                    <TextInput
+                                        style={[
+                                            styles.chatInput,
+                                            isFocused && styles.chatInputFocused,
+                                            Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)
+                                        ]}
+                                        placeholder={tags.length > 0 ? "Add details..." : "Type a message or ask Ezer..."}
+                                        placeholderTextColor={Colors.light.textMuted}
+                                        value={message}
+                                        onChangeText={setMessage}
+                                        onFocus={() => setIsFocused(true)}
+                                        onBlur={() => setIsFocused(false)}
+                                        multiline
+                                        maxLength={500}
+                                        onSubmitEditing={handleSend}
+                                        selectionColor={Colors.brand.primary}
+                                        cursorColor={Colors.brand.primary}
+                                    />
+                                    <TouchableOpacity
+                                        style={[styles.sendButton, (message.trim() || tags.length > 0) ? styles.sendButtonActive : null]}
+                                        onPress={(message.trim() || tags.length > 0) ? handleSend : undefined}
+                                    >
+                                        {(message.trim() || tags.length > 0) ? (
+                                            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
+                                                <Path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" />
+                                            </Svg>
+                                        ) : (
+                                            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={Colors.brand.primary} strokeWidth={2}>
+                                                <Path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                                                <Path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+                                            </Svg>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </View>
-                    </Animated.View>
+                        </Animated.View>
+                        <View style={styles.bottomGuard} />
+                    </View>
                 </KeyboardAvoidingView>
 
                 {/* Dragging Preview */}
@@ -1293,30 +1304,49 @@ const styles = StyleSheet.create({
 
     // --- Input Bar ---
     // --- Input Bar ---
+    outerBottomContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        justifyContent: 'flex-end',
+        zIndex: 100,
+    },
+    bottomGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 180, // Tall enough to create a beautiful fade
+    },
+    bottomGuard: {
+        height: 16, // Solid white section at the absolute bottom
+        backgroundColor: Colors.light.background,
+    },
     inputBar: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: Spacing.lg,
         paddingTop: 12,
-        backgroundColor: Colors.light.background,
-        borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
+        backgroundColor: 'transparent', // Transparent background to show the gradient
         gap: 12,
-        zIndex: 100,
     },
     chatInput: {
         flex: 1,
         fontFamily: Typography.fontFamily.body,
         fontSize: 15,
         color: Colors.light.text,
-        backgroundColor: Colors.neutral.white,
+        backgroundColor: '#E6F2F2',
         borderRadius: 28,
         paddingHorizontal: 20,
         paddingTop: 12,
         paddingBottom: 12,
         minHeight: 50,
         maxHeight: 120,
-        ...Shadows.card,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
         elevation: 8,
         textAlignVertical: 'center',
         includeFontPadding: false,
@@ -1330,11 +1360,14 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: Colors.neutral.white,
+        backgroundColor: '#E6F2F2', // Solid light teal to match the location pin (no glass effect)
         justifyContent: 'center',
         alignItems: 'center',
-        ...Shadows.card,
-        elevation: 4,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 8,
     },
     sendButtonActive: {
         backgroundColor: Colors.brand.primary,

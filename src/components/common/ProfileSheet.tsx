@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: Spacing.xl,
-        paddingBottom: 40,
+        paddingBottom: 120, // Increased to clear the input bar
     },
     profileCard: {
         backgroundColor: Colors.light.backgroundSecondary,
