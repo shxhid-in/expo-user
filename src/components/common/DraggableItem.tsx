@@ -50,6 +50,7 @@ export default function DraggableItem({
         vendorName: vendor.vendorName,
         price: vendor.price,
         image: productImage,
+        isProduct: variant !== 'vendor-card',
     };
 
     const pan = Gesture.Pan()

@@ -17,14 +17,28 @@ export default function RootNavigator() {
     useEffect(() => {
         async function restoreState() {
             try {
-                const [user, cart, orders] = await Promise.all([
+                const [user, cart, orders, tags, activeVendor] = await Promise.all([
                     storageService.getUser(),
                     storageService.getCart(),
                     storageService.getOrders(),
+                    storageService.getTags(),
+                    storageService.getActiveVendor(),
                 ]);
 
                 if (user) {
-                    dispatch({ type: 'RESTORE_STATE', payload: { user, isAuthenticated: true, cart, orderHistory: orders } });
+                    dispatch({
+                        type: 'RESTORE_STATE',
+                        payload: {
+                            user,
+                            isAuthenticated: true,
+                            cart,
+                            orderHistory: orders,
+                            tags,
+                            activeVendorId: activeVendor?.vendorId || null,
+                            activeVendorName: activeVendor?.vendorName || null,
+                            activeVendorImage: activeVendor?.vendorImage || null,
+                        }
+                    });
                 }
             } catch (e) {
                 console.warn('Failed to restore state:', e);

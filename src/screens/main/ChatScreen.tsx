@@ -99,7 +99,6 @@ export default function ChatScreen({ navigation, route }: Props) {
     }, []);
 
     // Drag & Drop State
-    const [tags, setTags] = useState<any[]>([]);
     const isDragging = useSharedValue(false);
     const dragX = useSharedValue(0);
     const dragY = useSharedValue(0);
@@ -124,14 +123,14 @@ export default function ChatScreen({ navigation, route }: Props) {
 
     const handleDrop = useCallback((item: any) => {
         // Tag the vendor
-        setTags([item]);
+        dispatch({ type: 'ADD_TAG', payload: item });
         setDraggedItem(null);
         isDragging.value = false;
-    }, []);
+    }, [dispatch]);
 
     const removeTag = useCallback((index: number) => {
-        setTags(prev => prev.filter((_, i) => i !== index));
-    }, []);
+        dispatch({ type: 'REMOVE_TAG', payload: index });
+    }, [dispatch]);
 
     // Load market data on mount
     useEffect(() => {
@@ -169,11 +168,11 @@ export default function ChatScreen({ navigation, route }: Props) {
 
     const handleSend = useCallback(async () => {
         const text = message.trim();
-        if (!text && tags.length === 0) return;
+        if (!text && state.tags.length === 0) return;
 
         setMessage('');
-        const currentTags = [...tags];
-        setTags([]);
+        const currentTags = [...state.tags];
+        dispatch({ type: 'CLEAR_TAGS' });
 
         // Add user message
         const displayMessage = text || (currentTags.length > 0 ? `I need items from ${currentTags[0].vendorName}` : '');
@@ -390,7 +389,7 @@ export default function ChatScreen({ navigation, route }: Props) {
         }
 
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 200);
-    }, [message, tags, state.cart, state.orderHistory, dispatch]);
+    }, [message, state.tags, state.cart, state.orderHistory, dispatch]);
 
     // --- Order Lifecycle Handlers ---
     const handlePlaceOrder = () => {
@@ -573,42 +572,43 @@ export default function ChatScreen({ navigation, route }: Props) {
                 contentContainerStyle={styles.vendorScrollContainer}
                 style={{ paddingLeft: Spacing.lg }}
             >
-                {vendors.map((vendor) => (
-                    <DraggableItem
-                        key={vendor.id}
-                        productId={vendor.id}
-                        productName={vendor.name}
-                        productImage={vendor.image}
-                        vendor={{
-                            vendorId: vendor.id,
-                            vendorName: vendor.name,
-                            vendorImage: vendor.image,
-                            vendorRating: vendor.rating,
-                            vendorDistance: vendor.distance,
-                            price: 0,
-                        }}
-                        variant="vendor-card"
-                        onDragStart={(item: any) => {
-                            setDraggedItem(item);
-                            isDragging.value = true;
-                        }}
-                        onDragEnd={(x: number, y: number, item: any) => {
-                            const screenHeight = Dimensions.get('window').height;
-                            if (y > screenHeight - 200) {
-                                handleDrop(item);
-                            } else {
-                                setDraggedItem(null);
-                                isDragging.value = false;
-                            }
-                        }}
-                        dragX={dragX}
-                        dragY={dragY}
-                        onSelect={() => {
-                            setSelectedVendorForSheet(vendor);
-                            setIsVendorSheetVisible(true);
-                        }}
-                    />
-                ))}
+                {vendors
+                    .filter(v => !state.activeVendorId || v.id === state.activeVendorId)
+                    .map((vendor) => (
+                        <DraggableItem
+                            key={vendor.id}
+                            productId={vendor.id}
+                            productName={vendor.name}
+                            productImage={vendor.image}
+                            vendor={{
+                                vendorId: vendor.id,
+                                vendorName: vendor.name,
+                                vendorImage: vendor.image,
+                                vendorRating: vendor.rating,
+                                vendorDistance: vendor.distance,
+                                price: 0,
+                            }}
+                            variant="vendor-card"
+                            onDragStart={(item: any) => {
+                                setDraggedItem(item);
+                                isDragging.value = true;
+                            }}
+                            onDragEnd={(x: number, y: number, item: any) => {
+                                const screenHeight = Dimensions.get('window').height;
+                                if (y > screenHeight - 200) {
+                                    handleDrop(item);
+                                    setDraggedItem(null);
+                                    isDragging.value = false;
+                                }
+                            }}
+                            dragX={dragX}
+                            dragY={dragY}
+                            onSelect={() => {
+                                setSelectedVendorForSheet(vendor);
+                                setIsVendorSheetVisible(true);
+                            }}
+                        />
+                    ))}
             </ScrollView>
         </View>
     ), [navigation, handleDrop, dragX, dragY, isDragging]);
@@ -640,9 +640,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'order_confirmed_detail') {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <OrderConfirmedDetailCard
                         orderId={item.data?.orderId}
                         items={item.data?.items}
@@ -657,9 +654,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'checking_availability' && item.data?.items) {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <CheckingAvailabilityCard items={item.data.items} />
                 </View>
             );
@@ -668,9 +662,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'contacting_vendor' && item.data?.vendorName) {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <ContactingVendorCard
                         vendorName={item.data.vendorName}
                         vendorImage={item.data.vendorImage}
@@ -683,9 +674,6 @@ export default function ChatScreen({ navigation, route }: Props) {
             const orderTotal = item.data.total || item.data.items.reduce((sum: number, oi: any) => sum + (oi.productPrice || oi.price || 0), 0);
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <OrderSummaryCard
                         items={item.data.items}
                         total={orderTotal}
@@ -702,9 +690,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'live_tracker' && item.data) {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <LiveTrackerCard
                         currentStep={item.data.currentStep || 0}
                         vendorName={item.data.vendorName}
@@ -718,9 +703,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'partner_assignment_flow') {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <PartnerAssignmentFlowCard vendorName={item.data?.vendorName} />
                 </View>
             );
@@ -729,9 +711,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'order_tracking') {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <OrderTrackingCard />
                 </View>
             );
@@ -740,9 +719,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'post_delivery' && item.data) {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     <PostDeliveryCard
                         orderId={item.data.orderId}
                         total={item.data.total}
@@ -769,9 +745,6 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (item.type === 'vendor_grid' && item.data?.vendors) {
             return (
                 <View style={styles.messageBotContainer}>
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
                     {renderVendorGrid(item.data.vendors)}
                 </View>
             );
@@ -779,11 +752,6 @@ export default function ChatScreen({ navigation, route }: Props) {
 
         return (
             <View style={[styles.messageRow, isUser ? styles.messageUserRow : styles.messageBotRow]}>
-                {!isUser ? (
-                    <View style={styles.avatarSmall}>
-                        <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                    </View>
-                ) : null}
                 <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble]}>
                     <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>{item.text}</Text>
                 </View>
@@ -845,9 +813,6 @@ export default function ChatScreen({ navigation, route }: Props) {
                     {/* Typing indicator */}
                     {isTyping ? (
                         <View style={styles.typingContainer}>
-                            <View style={styles.avatarSmall}>
-                                <Image source={require('../../../assets/ezer-avatar.png')} style={styles.avatarImage} resizeMode="cover" />
-                            </View>
                             <View style={[styles.messageBubble, styles.botBubble, styles.typingBubble]}>
                                 <ActivityIndicator size="small" color={Colors.brand.primary} />
                             </View>
@@ -874,12 +839,14 @@ export default function ChatScreen({ navigation, route }: Props) {
                         ]}>
                             <View style={styles.inputContainer}>
                                 {/* Tags Area overlaying the input field area conceptually */}
-                                {tags.length > 0 && (
+                                {state.tags.length > 0 && (
                                     <View style={styles.tagsContainer}>
-                                        {tags.map((tag, idx) => (
+                                        {state.tags.map((tag, idx) => (
                                             <View key={idx} style={styles.tag}>
                                                 <Image source={resolveImageSource(tag.image)} style={styles.tagImage} />
-                                                <Text style={styles.tagText} numberOfLines={1}>{tag.vendorName}</Text>
+                                                <Text style={styles.tagText} numberOfLines={1}>
+                                                    {tag.isProduct ? tag.productName : tag.vendorName}
+                                                </Text>
                                                 <TouchableOpacity onPress={() => removeTag(idx)} style={styles.removeTag}>
                                                     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
                                                         <Path d="M18 6L6 18M6 6l12 12" />
@@ -891,15 +858,12 @@ export default function ChatScreen({ navigation, route }: Props) {
                                 )}
 
                                 <View style={[styles.premiumInputWrapper, isFocused && styles.premiumInputWrapperFocused]}>
-                                    <View style={styles.aiIconContainer}>
-                                        <Text style={{ fontSize: 16 }}>✨</Text>
-                                    </View>
                                     <TextInput
                                         style={[
                                             styles.chatInput,
                                             Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)
                                         ]}
-                                        placeholder={tags.length > 0 ? "Add details..." : "Type a message or ask Ezer..."}
+                                        placeholder={state.tags.length > 0 ? "Add details..." : "Type a message or ask Ezer..."}
                                         placeholderTextColor={Colors.light.textMuted}
                                         value={message}
                                         onChangeText={setMessage}
@@ -912,10 +876,10 @@ export default function ChatScreen({ navigation, route }: Props) {
                                         cursorColor={Colors.brand.primary}
                                     />
                                     <TouchableOpacity
-                                        style={[styles.sendButton, (message.trim() || tags.length > 0) ? styles.sendButtonActive : null]}
-                                        onPress={(message.trim() || tags.length > 0) ? handleSend : undefined}
+                                        style={[styles.sendButton, (message.trim() || state.tags.length > 0) ? styles.sendButtonActive : null]}
+                                        onPress={(message.trim() || state.tags.length > 0) ? handleSend : undefined}
                                     >
-                                        {(message.trim() || tags.length > 0) ? (
+                                        {(message.trim() || state.tags.length > 0) ? (
                                             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
                                                 <Path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" />
                                             </Svg>
@@ -938,8 +902,8 @@ export default function ChatScreen({ navigation, route }: Props) {
                     <Animated.View style={[styles.dragPreview, dragPreviewStyle]}>
                         <Image source={resolveImageSource(draggedItem.image)} style={styles.previewImage} />
                         <View style={styles.previewInfo}>
-                            <Text style={styles.previewName}>{draggedItem.vendorName}</Text>
-                            <Text style={styles.previewSub}>{draggedItem.name}</Text>
+                            <Text style={styles.previewName}>{draggedItem.name || draggedItem.vendorName}</Text>
+                            {draggedItem.name && <Text style={styles.previewSub}>{draggedItem.vendorName}</Text>}
                         </View>
                     </Animated.View>
                 )}
@@ -960,12 +924,24 @@ export default function ChatScreen({ navigation, route }: Props) {
                 isVisible={isVendorSheetVisible}
                 onClose={() => setIsVendorSheetVisible(false)}
                 vendor={selectedVendorForSheet}
+                onDragStart={(item: any) => {
+                    setDraggedItem(item);
+                    isDragging.value = true;
+                }}
+                dragX={dragX}
+                dragY={dragY}
             />
 
             <CategorySheet
                 isVisible={isCategorySheetVisible}
                 onClose={() => setIsCategorySheetVisible(false)}
                 categoryKey={selectedCategoryKeyForSheet}
+                onDragStart={(item: any) => {
+                    setDraggedItem(item);
+                    isDragging.value = true;
+                }}
+                dragX={dragX}
+                dragY={dragY}
             />
         </GestureHandlerRootView>
     );
@@ -1248,23 +1224,6 @@ const styles = StyleSheet.create({
         fontFamily: Typography.fontFamily.body,
         color: Colors.light.text,
     },
-    avatarSmall: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        overflow: 'hidden',
-        marginRight: 6,
-        marginTop: 2,
-        backgroundColor: Colors.neutral.white,
-        justifyContent: 'center',
-        alignItems: 'center',
-        ...Shadows.card,
-    },
-    avatarImage: {
-        width: '75%', // Scale down to hide the checkerboard border
-        height: '75%',
-        borderRadius: 12, // Circular clipping for the inner image too
-    },
     typingContainer: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.lg,
@@ -1311,7 +1270,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: Colors.neutral.white,
         borderRadius: 32,
-        paddingHorizontal: 8,
+        paddingHorizontal: 16,
         paddingVertical: 6,
         borderWidth: 1.5,
         borderColor: '#E2E8F0',
@@ -1323,15 +1282,6 @@ const styles = StyleSheet.create({
         borderColor: Colors.brand.primary,
         shadowOpacity: 0.2,
         backgroundColor: '#FFFFFF',
-    },
-    aiIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.brand.primarySoft,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 4,
     },
     chatInput: {
         flex: 1,

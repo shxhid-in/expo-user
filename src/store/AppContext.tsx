@@ -23,6 +23,7 @@ interface AppState {
     activeVendorName: string | null;
     activeVendorImage: string | null;
     activeOrderStage: OrderStage;
+    tags: any[];
 }
 
 const initialState: AppState = {
@@ -41,6 +42,7 @@ const initialState: AppState = {
     activeVendorName: null,
     activeVendorImage: null,
     activeOrderStage: 'idle',
+    tags: [],
 };
 
 // --- Actions ---
@@ -49,7 +51,7 @@ type Action =
     | { type: 'LOGOUT' }
     | { type: 'SET_MARKET_DATA'; payload: MarketData }
     | { type: 'ADD_TO_CART'; payload: CartItem }
-    | { type: 'REMOVE_FROM_CART'; payload: { id: string; vendor: string; weight?: string } }
+    | { type: 'REMOVE_FROM_CART'; payload: { id: string; vendorId: string; weight?: string } }
     | { type: 'CLEAR_CART' }
     | { type: 'SET_CART'; payload: CartItem[] }
     | { type: 'ADD_MESSAGE'; payload: ChatMessage }
@@ -58,6 +60,9 @@ type Action =
     | { type: 'ADD_ORDER'; payload: OrderHistoryItem }
     | { type: 'CANCEL_ORDER'; payload: string }
     | { type: 'SET_LOCATION'; payload: { location: string; label: string } }
+    | { type: 'ADD_TAG'; payload: any }
+    | { type: 'REMOVE_TAG'; payload: number }
+    | { type: 'CLEAR_TAGS' }
     | { type: 'SET_THEME'; payload: { isDark?: boolean; brandColor?: string } }
     | { type: 'RESTORE_STATE'; payload: Partial<AppState> }
     | { type: 'SET_ORDER_STAGE'; payload: OrderStage }
@@ -115,20 +120,26 @@ function reducer(state: AppState, action: Action): AppState {
                 (item) =>
                     !(
                         item.id === action.payload.id &&
-                        item.vendor === action.payload.vendor &&
+                        item.vendorId === action.payload.vendorId &&
                         (!action.payload.weight || item.weight === action.payload.weight)
                     )
             );
+            // Also remove tag if it exists
+            const nextTags = state.tags.filter(tag =>
+                !(tag.isProduct && tag.productId === action.payload.id && tag.vendorId === action.payload.vendorId)
+            );
+
             return {
                 ...state,
                 cart: newCart,
+                tags: nextTags,
                 activeVendorId: newCart.length === 0 ? null : state.activeVendorId,
                 activeVendorName: newCart.length === 0 ? null : state.activeVendorName,
                 activeVendorImage: newCart.length === 0 ? null : state.activeVendorImage,
             };
         }
         case 'CLEAR_CART':
-            return { ...state, cart: [], activeVendorId: null, activeVendorName: null, activeVendorImage: null, activeOrderStage: 'idle' };
+            return { ...state, cart: [], tags: [], activeVendorId: null, activeVendorName: null, activeVendorImage: null, activeOrderStage: 'idle' };
         case 'SET_CART':
             return { ...state, cart: action.payload };
         case 'ADD_MESSAGE':
@@ -148,6 +159,40 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'SET_LOCATION':
             return { ...state, currentLocation: action.payload.location, currentLocationLabel: action.payload.label };
+        case 'ADD_TAG':
+            // Avoid adding same vendor twice for now? Or keep it simple.
+            return { ...state, tags: [...state.tags, action.payload] };
+        case 'REMOVE_TAG': {
+            const tagToRemove = state.tags[action.payload];
+            const nextTags = state.tags.filter((_, i) => i !== action.payload);
+            let nextCart = state.cart;
+
+            // If it's a product tag, remove from cart too
+            if (tagToRemove?.isProduct && tagToRemove.productId) {
+                nextCart = state.cart.filter(item =>
+                    !(item.id === tagToRemove.productId && item.vendorId === tagToRemove.vendorId)
+                );
+            }
+
+            return {
+                ...state,
+                tags: nextTags,
+                cart: nextTags.length === 0 ? [] : nextCart,
+                activeVendorId: (nextTags.length === 0 || nextCart.length === 0) ? null : state.activeVendorId,
+                activeVendorName: (nextTags.length === 0 || nextCart.length === 0) ? null : state.activeVendorName,
+                activeVendorImage: (nextTags.length === 0 || nextCart.length === 0) ? null : state.activeVendorImage,
+            };
+        }
+        case 'CLEAR_TAGS':
+            return {
+                ...state,
+                tags: [],
+                cart: [],
+                activeVendorId: null,
+                activeVendorName: null,
+                activeVendorImage: null,
+                activeOrderStage: 'idle'
+            };
         case 'SET_THEME':
             return {
                 ...state,
@@ -188,10 +233,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Persist cart changes
     useEffect(() => {
-        if (state.cart.length > 0) {
-            storage.saveCart(state.cart);
-        }
+        storage.saveCart(state.cart);
     }, [state.cart]);
+
+    // Persist tag changes
+    useEffect(() => {
+        storage.saveTags(state.tags);
+    }, [state.tags]);
+
+    // Persist active vendor changes
+    useEffect(() => {
+        if (state.activeVendorId) {
+            storage.saveActiveVendor({
+                vendorId: state.activeVendorId,
+                vendorName: state.activeVendorName,
+                vendorImage: state.activeVendorImage
+            });
+        } else {
+            storage.saveActiveVendor(null);
+        }
+    }, [state.activeVendorId, state.activeVendorName, state.activeVendorImage]);
 
     // Persist user changes
     useEffect(() => {
@@ -202,9 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Persist orders
     useEffect(() => {
-        if (state.orderHistory.length > 0) {
-            storage.saveOrders(state.orderHistory);
-        }
+        storage.saveOrders(state.orderHistory);
     }, [state.orderHistory]);
 
     return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;

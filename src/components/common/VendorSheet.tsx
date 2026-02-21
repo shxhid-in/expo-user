@@ -20,6 +20,7 @@ import Animated, {
     interpolate,
     Extrapolate,
     runOnJS,
+    SharedValue,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
@@ -39,9 +40,12 @@ interface Props {
     isVisible: boolean;
     onClose: () => void;
     vendor: Vendor | null;
+    onDragStart: (item: any) => void;
+    dragX: SharedValue<number>;
+    dragY: SharedValue<number>;
 }
 
-export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
+export default function VendorSheet({ isVisible, onClose, vendor, onDragStart, dragX, dragY }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
 
@@ -142,21 +146,25 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
     }, [contentOpacity, contentTranslateX, contentScale, onInteractionComplete]);
 
     const handleNextVendor = useCallback(() => {
-        if (!activeVendor || vendors.length < 2) return;
+        const isLocked = state.cart.length > 0 || state.tags.length > 0;
+        if (!activeVendor || vendors.length < 2 || isLocked) return;
         const currentIndex = vendors.findIndex(v => v.id === activeVendor.id);
         const nextIndex = (currentIndex + 1) % vendors.length;
         performTransition(vendors[nextIndex], 'next');
-    }, [activeVendor, vendors, performTransition]);
+    }, [activeVendor, vendors, performTransition, state.cart.length, state.tags.length]);
 
     const handlePrevVendor = useCallback(() => {
-        if (!activeVendor || vendors.length < 2) return;
+        const isLocked = state.cart.length > 0 || state.tags.length > 0;
+        if (!activeVendor || vendors.length < 2 || isLocked) return;
         const currentIndex = vendors.findIndex(v => v.id === activeVendor.id);
         const prevIndex = (currentIndex - 1 + vendors.length) % vendors.length;
         performTransition(vendors[prevIndex], 'prev');
-    }, [activeVendor, vendors, performTransition]);
+    }, [activeVendor, vendors, performTransition, state.cart.length, state.tags.length]);
 
     const swipeGesture = Gesture.Pan()
         .onEnd((e) => {
+            const isLocked = state.cart.length > 0 || state.tags.length > 0;
+            if (isLocked) return;
             if (e.velocityX > 500) {
                 runOnJS(handlePrevVendor)();
             } else if (e.velocityX < -500) {
@@ -233,6 +241,10 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
         return { opacity: animation.value + extraDarken };
     });
 
+    const handleDrop = useCallback((item: any) => {
+        dispatch({ type: 'ADD_TAG', payload: item });
+    }, [dispatch]);
+
     const groupedProducts = useMemo(() => {
         if (!activeVendor) return {};
         const products = state.marketData?.products.filter((p: Product) =>
@@ -248,36 +260,37 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
 
     const handleAddItem = (item: any) => {
         if (!activeVendor) return;
+
+        // Tag on click
+        dispatch({
+            type: 'ADD_TAG',
+            payload: {
+                vendorId: activeVendor.id,
+                vendorName: activeVendor.name,
+                image: item.image || activeVendor.image,
+                productId: item.id,
+                productName: item.name,
+                isProduct: true
+            }
+        });
+
         if (state.activeVendorId && state.activeVendorId !== activeVendor.id) {
-            Alert.alert(
-                'Different Vendor',
-                `You already have items from ${state.activeVendorName || 'another vendor'}. Clear your cart to order from ${activeVendor.name}.`,
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                        text: 'Clear & Add',
-                        style: 'destructive',
-                        onPress: () => {
-                            dispatch({ type: 'CLEAR_CART' });
-                            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: activeVendor.id, vendorName: activeVendor.name, vendorImage: activeVendor.image } });
-                            dispatch({
-                                type: 'ADD_TO_CART',
-                                payload: {
-                                    id: item.id,
-                                    name: item.name,
-                                    price: item.price,
-                                    qty: 1,
-                                    weight: '1kg',
-                                    vendor: activeVendor.name,
-                                    vendorId: activeVendor.id,
-                                    vendorImage: activeVendor.image || '',
-                                    image: item.image || '',
-                                }
-                            });
-                        },
-                    },
-                ]
-            );
+            dispatch({ type: 'CLEAR_CART' });
+            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: activeVendor.id, vendorName: activeVendor.name, vendorImage: activeVendor.image } });
+            dispatch({
+                type: 'ADD_TO_CART',
+                payload: {
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    qty: 1,
+                    weight: '1kg',
+                    vendor: activeVendor.name,
+                    vendorId: activeVendor.id,
+                    vendorImage: activeVendor.image || '',
+                    image: item.image || '',
+                }
+            });
             return;
         }
         if (!state.activeVendorId) {
@@ -311,16 +324,18 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                 <Animated.View style={[styles.modalContent, modalContentStyle]}>
                     <GestureDetector gesture={swipeGesture}>
                         <Animated.View style={[styles.vendorPill, pillStyle]}>
-                            <TouchableOpacity
-                                onPress={handlePrevVendor}
-                                style={styles.navButton}
-                                activeOpacity={0.6}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
-                                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
-                                    <Path d="M15 18l-6-6 6-6" />
-                                </Svg>
-                            </TouchableOpacity>
+                            {!(state.cart.length > 0 || state.tags.length > 0) && (
+                                <TouchableOpacity
+                                    onPress={handlePrevVendor}
+                                    style={styles.navButton}
+                                    activeOpacity={0.6}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
+                                        <Path d="M15 18l-6-6 6-6" />
+                                    </Svg>
+                                </TouchableOpacity>
+                            )}
 
                             <Animated.View style={[styles.pillCenter, contentAnimationStyle]}>
                                 <Image source={resolveImageSource(activeVendor.image)} style={styles.pillAvatar} />
@@ -336,16 +351,18 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                             </Animated.View>
 
                             <View style={styles.navGroup}>
-                                <TouchableOpacity
-                                    onPress={handleNextVendor}
-                                    style={styles.navButton}
-                                    activeOpacity={0.6}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
-                                        <Path d="M9 18l6-6-6-6" />
-                                    </Svg>
-                                </TouchableOpacity>
+                                {!(state.cart.length > 0 || state.tags.length > 0) && (
+                                    <TouchableOpacity
+                                        onPress={handleNextVendor}
+                                        style={styles.navButton}
+                                        activeOpacity={0.6}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
+                                            <Path d="M9 18l6-6-6-6" />
+                                        </Svg>
+                                    </TouchableOpacity>
+                                )}
                                 <View style={styles.pillDivider} />
                                 <TouchableOpacity
                                     onPress={onClose}
@@ -396,17 +413,17 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                                                                 vendorDistance: activeVendor.distance,
                                                                 price: product.prices[activeVendor.id],
                                                             }}
+                                                            onDragStart={onDragStart}
+                                                            onDragEnd={(x: number, y: number, item: any) => {
+                                                                const screenHeight = Dimensions.get('window').height;
+                                                                if (y > screenHeight - 200) {
+                                                                    runOnJS(handleDrop)(item);
+                                                                }
+                                                            }}
+                                                            dragX={dragX}
+                                                            dragY={dragY}
+                                                            onSelect={() => handleAddItem(product)}
                                                             variant="grid"
-                                                            onDragStart={() => { }}
-                                                            onDragEnd={() => { }}
-                                                            dragX={dummyDragX}
-                                                            dragY={dummyDragY}
-                                                            onSelect={() => handleAddItem({
-                                                                id: product.id,
-                                                                name: product.name,
-                                                                price: product.prices[activeVendor.id],
-                                                                image: product.image
-                                                            })}
                                                         />
                                                     </View>
                                                 ))}

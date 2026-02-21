@@ -18,6 +18,7 @@ import Animated, {
     interpolate,
     Extrapolate,
     runOnJS,
+    SharedValue,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
@@ -50,9 +51,12 @@ interface Props {
     isVisible: boolean;
     onClose: () => void;
     categoryKey: string | null;
+    onDragStart: (item: any) => void;
+    dragX: SharedValue<number>;
+    dragY: SharedValue<number>;
 }
 
-export default function CategorySheet({ isVisible, onClose, categoryKey }: Props) {
+export default function CategorySheet({ isVisible, onClose, categoryKey, onDragStart, dragX, dragY }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
 
@@ -155,16 +159,18 @@ export default function CategorySheet({ isVisible, onClose, categoryKey }: Props
     }, [contentOpacity, contentTranslateX, contentScale, onInteractionComplete]);
 
     const handleNextCategory = useCallback(() => {
+        if (isTransitioning) return; // Prevent spamming
         const currentIndex = CATEGORIES.findIndex(c => c.key === activeCategory.key);
         const nextIndex = (currentIndex + 1) % CATEGORIES.length;
         performTransition(CATEGORIES[nextIndex], 'next');
-    }, [activeCategory, performTransition]);
+    }, [activeCategory, performTransition, isTransitioning]);
 
     const handlePrevCategory = useCallback(() => {
+        if (isTransitioning) return; // Prevent spamming
         const currentIndex = CATEGORIES.findIndex(c => c.key === activeCategory.key);
         const prevIndex = (currentIndex - 1 + CATEGORIES.length) % CATEGORIES.length;
         performTransition(CATEGORIES[prevIndex], 'prev');
-    }, [activeCategory, performTransition]);
+    }, [activeCategory, performTransition, isTransitioning]);
 
     const swipeGesture = Gesture.Pan()
         .onEnd((e) => {
@@ -234,55 +240,75 @@ export default function CategorySheet({ isVisible, onClose, categoryKey }: Props
         return { opacity: animation.value + extraDarken };
     });
 
-    const groupedProducts = useMemo(() => {
+    const uniqueProducts = useMemo(() => {
         const products = state.marketData?.products.filter((p: Product) => p.category === activeCategory.key) || [];
-        const groups: Record<string, { products: Product[], vendor: Vendor }> = {};
+        const unique: { product: Product, vendor: Vendor }[] = [];
+        const seenIds = new Set();
 
         products.forEach(p => {
-            Object.keys(p.prices).forEach(vendorId => {
-                const vendor = state.marketData?.vendors.find(v => v.id === vendorId);
-                if (vendor) {
-                    if (!groups[vendorId]) {
-                        groups[vendorId] = { products: [], vendor };
+            if (!seenIds.has(p.id)) {
+                // Find first available vendor for this product
+                // IF we have an active vendor lock, only show price for that vendor
+                const targetVendorId = state.activeVendorId;
+
+                if (targetVendorId) {
+                    if (p.prices[targetVendorId]) {
+                        const vendor = state.marketData?.vendors.find(v => v.id === targetVendorId);
+                        if (vendor) {
+                            unique.push({ product: p, vendor });
+                            seenIds.add(p.id);
+                        }
                     }
-                    groups[vendorId].products.push(p);
+                } else {
+                    const vendorId = Object.keys(p.prices)[0];
+                    const vendor = state.marketData?.vendors.find(v => v.id === vendorId);
+                    if (vendor) {
+                        unique.push({ product: p, vendor });
+                        seenIds.add(p.id);
+                    }
                 }
-            });
+            }
         });
-        return groups;
-    }, [activeCategory, state.marketData]);
+        return unique;
+    }, [activeCategory, state.marketData, state.activeVendorId]);
+
+    const handleDrop = useCallback((item: any) => {
+        const screenHeight = Dimensions.get('window').height;
+        // Logic similar to ChatScreen - drop near bottom triggers tag
+        dispatch({ type: 'ADD_TAG', payload: item });
+    }, [dispatch]);
 
     const handleAddItem = (item: any, v: Vendor) => {
+        // Tag the item/vendor on click as well
+        dispatch({
+            type: 'ADD_TAG',
+            payload: {
+                vendorId: v.id,
+                vendorName: v.name,
+                image: item.image || v.image,
+                productId: item.id,
+                productName: item.name,
+                isProduct: true
+            }
+        });
+
         if (state.activeVendorId && state.activeVendorId !== v.id) {
-            Alert.alert(
-                'Different Vendor',
-                `You already have items from ${state.activeVendorName || 'another vendor'}. Clear your cart to order from ${v.name}.`,
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                        text: 'Clear & Add',
-                        style: 'destructive',
-                        onPress: () => {
-                            dispatch({ type: 'CLEAR_CART' });
-                            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: v.id, vendorName: v.name, vendorImage: v.image } });
-                            dispatch({
-                                type: 'ADD_TO_CART',
-                                payload: {
-                                    id: item.id,
-                                    name: item.name,
-                                    price: item.prices[v.id],
-                                    qty: 1,
-                                    weight: '1kg',
-                                    vendor: v.name,
-                                    vendorId: v.id,
-                                    vendorImage: v.image || '',
-                                    image: item.image || '',
-                                }
-                            });
-                        },
-                    },
-                ]
-            );
+            dispatch({ type: 'CLEAR_CART' });
+            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: v.id, vendorName: v.name, vendorImage: v.image } });
+            dispatch({
+                type: 'ADD_TO_CART',
+                payload: {
+                    id: item.id,
+                    name: item.name,
+                    price: item.prices[v.id],
+                    qty: 1,
+                    weight: '1kg',
+                    vendor: v.name,
+                    vendorId: v.id,
+                    vendorImage: v.image || '',
+                    image: item.image || '',
+                }
+            });
             return;
         }
         if (!state.activeVendorId) {
@@ -326,7 +352,7 @@ export default function CategorySheet({ isVisible, onClose, categoryKey }: Props
                                 <Image source={activeCategory.image} style={styles.pillAvatar} />
                                 <View style={styles.pillNameContainer}>
                                     <Text style={styles.pillName} numberOfLines={1}>{activeCategory.name}</Text>
-                                    <Text style={styles.pillSubtext}>{Object.keys(groupedProducts).length} Shops nearby</Text>
+                                    <Text style={styles.pillSubtext}>{uniqueProducts.length} Items available</Text>
                                 </View>
                             </Animated.View>
 
@@ -355,45 +381,41 @@ export default function CategorySheet({ isVisible, onClose, categoryKey }: Props
                                 scrollEventThrottle={16}
                                 bounces={false}
                             >
-                                {Object.entries(groupedProducts).length === 0 ? (
+                                {uniqueProducts.length === 0 ? (
                                     <View style={styles.emptyState}>
                                         <Text style={styles.emptyText}>No items available in this category</Text>
                                     </View>
                                 ) : (
-                                    Object.entries(groupedProducts).map(([vendorId, { products, vendor }]) => (
-                                        <View key={vendorId} style={styles.categorySection}>
-                                            <View style={styles.categoryHeader}>
-                                                <Image source={resolveImageSource(vendor.image)} style={styles.vendorIcon} />
-                                                <Text style={styles.categoryTitle}>{vendor.name.toUpperCase()}</Text>
-                                                <View style={styles.categoryLine} />
+                                    <View style={styles.productGrid}>
+                                        {uniqueProducts.map(({ product, vendor }) => (
+                                            <View key={product.id} style={styles.productWrapper}>
+                                                <DraggableItem
+                                                    productId={product.id}
+                                                    productName={product.name}
+                                                    productImage={product.image}
+                                                    vendor={{
+                                                        vendorId: vendor.id,
+                                                        vendorName: vendor.name,
+                                                        vendorImage: vendor.image,
+                                                        vendorRating: vendor.rating,
+                                                        vendorDistance: vendor.distance,
+                                                        price: product.prices[vendor.id],
+                                                    }}
+                                                    variant="grid"
+                                                    onDragStart={onDragStart}
+                                                    onDragEnd={(x, y, item) => {
+                                                        const screenHeight = Dimensions.get('window').height;
+                                                        if (y > screenHeight - 200) {
+                                                            runOnJS(handleDrop)(item);
+                                                        }
+                                                    }}
+                                                    dragX={dragX}
+                                                    dragY={dragY}
+                                                    onSelect={() => handleAddItem(product, vendor)}
+                                                />
                                             </View>
-                                            <View style={styles.productGrid}>
-                                                {products.map((product) => (
-                                                    <View key={product.id} style={styles.productWrapper}>
-                                                        <DraggableItem
-                                                            productId={product.id}
-                                                            productName={product.name}
-                                                            productImage={product.image}
-                                                            vendor={{
-                                                                vendorId: vendor.id,
-                                                                vendorName: vendor.name,
-                                                                vendorImage: vendor.image,
-                                                                vendorRating: vendor.rating,
-                                                                vendorDistance: vendor.distance,
-                                                                price: product.prices[vendor.id],
-                                                            }}
-                                                            variant="grid"
-                                                            onDragStart={() => { }}
-                                                            onDragEnd={() => { }}
-                                                            dragX={dummyDragX}
-                                                            dragY={dummyDragY}
-                                                            onSelect={() => handleAddItem(product, vendor)}
-                                                        />
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        </View>
-                                    ))
+                                        ))}
+                                    </View>
                                 )}
                             </Animated.ScrollView>
                         </Animated.View>

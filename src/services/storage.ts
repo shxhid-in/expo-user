@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const KEYS = {
     USER_DATA: '@bezgofresh_user',
     CART: '@bezgofresh_cart',
+    TAGS: '@bezgofresh_tags',
+    ACTIVE_VENDOR: '@bezgofresh_active_vendor',
     ORDER_HISTORY: '@bezgofresh_orders',
     THEME: '@bezgofresh_theme',
     ONBOARDED: '@bezgofresh_onboarded',
@@ -24,6 +26,24 @@ export async function saveCart(cart: any[]): Promise<void> {
 export async function getCart(): Promise<any[]> {
     const data = await AsyncStorage.getItem(KEYS.CART);
     return data ? JSON.parse(data) : [];
+}
+
+export async function saveTags(tags: any[]): Promise<void> {
+    await AsyncStorage.setItem(KEYS.TAGS, JSON.stringify(tags));
+}
+
+export async function getTags(): Promise<any[]> {
+    const data = await AsyncStorage.getItem(KEYS.TAGS);
+    return data ? JSON.parse(data) : [];
+}
+
+export async function saveActiveVendor(vendor: any): Promise<void> {
+    await AsyncStorage.setItem(KEYS.ACTIVE_VENDOR, JSON.stringify(vendor));
+}
+
+export async function getActiveVendor(): Promise<any | null> {
+    const data = await AsyncStorage.getItem(KEYS.ACTIVE_VENDOR);
+    return data ? JSON.parse(data) : null;
 }
 
 export async function saveOrders(orders: any[]): Promise<void> {
