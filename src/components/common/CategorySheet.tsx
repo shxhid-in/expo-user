@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     Dimensions,
     Pressable,
-    ScrollView,
     Image,
     Alert,
 } from 'react-native';
@@ -15,7 +14,6 @@ import Animated, {
     useAnimatedStyle,
     useAnimatedScrollHandler,
     withTiming,
-    withSpring,
     Easing,
     interpolate,
     Extrapolate,
@@ -23,41 +21,65 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useAppState } from '../../store/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveImageSource } from '../../services/api';
-import { formatCurrency } from '../../utils/formatting';
 import DraggableItem from './DraggableItem';
 import { Product, Vendor } from '../../types';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('screen');
 const WINDOW_WIDTH = Math.min(SCREEN_WIDTH - 32, 450);
-// Removed fixed WINDOW_HEIGHT constant to calculate dynamically inside
+
+const CATEGORIES = [
+    { name: 'Chicken', key: 'poultry', image: require('../../../assets/Chicekn curry cut.jpg') },
+    { name: 'Mutton', key: 'mutton', image: require('../../../assets/Mutton Ribbs.jpg') },
+    { name: 'Beef', key: 'beef', image: require('../../../assets/beef boneless.jpg') },
+    { name: 'Fish', key: 'fish', image: require('../../../assets/Mackerel.png') },
+    { name: 'Seafood', key: 'seafood', image: require('../../../assets/Tiger prawns.png') },
+    { name: 'Steak Fishes', key: 'steak_fishes', image: require('../../../assets/salmon.jpg') },
+];
+
+interface Category {
+    name: string;
+    key: string;
+    image: any;
+}
 
 interface Props {
     isVisible: boolean;
     onClose: () => void;
-    vendor: Vendor | null;
+    categoryKey: string | null;
 }
 
-export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
+export default function CategorySheet({ isVisible, onClose, categoryKey }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
 
-    // Calculate dynamic height to maintain uniform gaps at top and bottom
+    const initialCategory = useMemo(() =>
+        CATEGORIES.find(c => c.key === categoryKey) || CATEGORIES[0],
+        [categoryKey]);
+
+    const [activeCategory, setActiveCategory] = useState<Category>(initialCategory);
+
+    // Update active category when categoryKey changes externally
+    useEffect(() => {
+        if (categoryKey) {
+            const found = CATEGORIES.find(c => c.key === categoryKey);
+            if (found) setActiveCategory(found);
+        }
+    }, [categoryKey]);
+
     const WINDOW_HEIGHT = useMemo(() => {
         const topSpace = insets.top + 20;
-        const bottomSpace = insets.bottom + 100; // Uniform gap to chat bar
-        const pillArea = 74; // Height of pill + margin
+        const bottomSpace = insets.bottom + 100;
+        const pillArea = 74;
         return SCREEN_HEIGHT - topSpace - bottomSpace - pillArea;
     }, [insets]);
 
-    const [activeVendor, setActiveVendor] = useState<Vendor | null>(vendor);
     const animation = useSharedValue(0);
     const [shouldRender, setShouldRender] = useState(isVisible);
 
-    // Transition animations
     const contentTranslateX = useSharedValue(0);
     const contentOpacity = useSharedValue(1);
     const contentScale = useSharedValue(1);
@@ -66,7 +88,6 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
     const dummyDragX = useSharedValue(0);
     const dummyDragY = useSharedValue(0);
 
-    // Scroll tracking for full screen transition
     const scrollY = useSharedValue(0);
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
@@ -74,14 +95,10 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
         },
     });
 
-    const vendors = useMemo(() => state.marketData?.vendors || [], [state.marketData]);
-
     useEffect(() => {
         if (isVisible) {
             setShouldRender(true);
-            scrollY.value = 0; // Reset scroll on open
-            if (vendor) setActiveVendor(vendor);
-            animation.value = 0;
+            scrollY.value = 0;
             animation.value = withTiming(1, {
                 duration: 600,
                 easing: Easing.bezier(0.16, 1, 0.3, 1)
@@ -96,42 +113,38 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                 }
             });
         }
-    }, [isVisible, vendor]);
+    }, [isVisible]);
 
     const isLockRef = React.useRef(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
 
-    // Final cleanup after animation completes
     const onInteractionComplete = useCallback(() => {
         setIsTransitioning(false);
         isLockRef.current = false;
     }, []);
 
-    const performTransition = useCallback((nextVendor: Vendor, direction: 'next' | 'prev') => {
+    const performTransition = useCallback((nextCat: Category, direction: 'next' | 'prev') => {
         if (isLockRef.current) return;
         isLockRef.current = true;
         setIsTransitioning(true);
 
-        const slideDistance = 140; // Increased for better look
+        const slideDistance = 140;
         const outValue = direction === 'next' ? -slideDistance : slideDistance;
 
-        // Phase 1: Rapid Exit
         contentOpacity.value = withTiming(0, { duration: 180 });
         contentTranslateX.value = withTiming(outValue, { duration: 180 });
         contentScale.value = withTiming(0.96, { duration: 180 });
 
-        // Phase 2: Switch Vendor Mid-Air
         setTimeout(() => {
-            setActiveVendor(nextVendor);
-            contentTranslateX.value = -outValue; // Snap to opposite side
+            setActiveCategory(nextCat);
+            contentTranslateX.value = -outValue;
         }, 180);
 
-        // Phase 3: Smooth Re-entry
         setTimeout(() => {
             contentOpacity.value = withTiming(1, { duration: 350 });
             contentTranslateX.value = withTiming(0, {
                 duration: 400,
-                easing: Easing.out(Easing.quad) // More stable than Easing.back for rapid changes
+                easing: Easing.out(Easing.quad)
             }, (finished) => {
                 if (finished) {
                     runOnJS(onInteractionComplete)();
@@ -141,52 +154,45 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
         }, 220);
     }, [contentOpacity, contentTranslateX, contentScale, onInteractionComplete]);
 
-    const handleNextVendor = useCallback(() => {
-        if (!activeVendor || vendors.length < 2) return;
-        const currentIndex = vendors.findIndex(v => v.id === activeVendor.id);
-        const nextIndex = (currentIndex + 1) % vendors.length;
-        performTransition(vendors[nextIndex], 'next');
-    }, [activeVendor, vendors, performTransition]);
+    const handleNextCategory = useCallback(() => {
+        const currentIndex = CATEGORIES.findIndex(c => c.key === activeCategory.key);
+        const nextIndex = (currentIndex + 1) % CATEGORIES.length;
+        performTransition(CATEGORIES[nextIndex], 'next');
+    }, [activeCategory, performTransition]);
 
-    const handlePrevVendor = useCallback(() => {
-        if (!activeVendor || vendors.length < 2) return;
-        const currentIndex = vendors.findIndex(v => v.id === activeVendor.id);
-        const prevIndex = (currentIndex - 1 + vendors.length) % vendors.length;
-        performTransition(vendors[prevIndex], 'prev');
-    }, [activeVendor, vendors, performTransition]);
+    const handlePrevCategory = useCallback(() => {
+        const currentIndex = CATEGORIES.findIndex(c => c.key === activeCategory.key);
+        const prevIndex = (currentIndex - 1 + CATEGORIES.length) % CATEGORIES.length;
+        performTransition(CATEGORIES[prevIndex], 'prev');
+    }, [activeCategory, performTransition]);
 
     const swipeGesture = Gesture.Pan()
         .onEnd((e) => {
             if (e.velocityX > 500) {
-                runOnJS(handlePrevVendor)();
+                runOnJS(handlePrevCategory)();
             } else if (e.velocityX < -500) {
-                runOnJS(handleNextVendor)();
+                runOnJS(handleNextCategory)();
             }
         });
 
-    const containerStyle = useAnimatedStyle(() => {
-        return {
-            paddingTop: insets.top + 20,
-        };
-    });
+    const containerStyle = useAnimatedStyle(() => ({
+        paddingTop: insets.top + 20,
+    }));
 
-    const modalContentStyle = useAnimatedStyle(() => {
-        return {
-            width: WINDOW_WIDTH, // Locked to prevent Pill expansion
-        };
-    });
+    const modalContentStyle = useAnimatedStyle(() => ({
+        width: WINDOW_WIDTH,
+    }));
 
     const pillStyle = useAnimatedStyle(() => {
         const opacity = interpolate(animation.value, [0, 0.5, 1], [0, 1, 1], Extrapolate.CLAMP);
         const entryTranslateY = interpolate(animation.value, [0, 1], [-30, 0], Extrapolate.CLAMP);
         const scale = interpolate(animation.value, [0, 1], [0.9, 1], Extrapolate.CLAMP);
-
         return {
             opacity,
             transform: [{ translateY: entryTranslateY }, { scale }],
-            borderRadius: 20, // Locked
-            marginBottom: 10, // Locked
-            borderBottomWidth: 1, // Locked
+            borderRadius: 20,
+            marginBottom: 10,
+            borderBottomWidth: 1,
             zIndex: 10,
         };
     });
@@ -196,12 +202,9 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
         const scale = interpolate(animation.value, [0, 1], [0.8, 1], Extrapolate.CLAMP);
         const opacity = interpolate(animation.value, [0, 0.4, 1], [0, 1, 1], Extrapolate.CLAMP);
         const entryTranslateY = interpolate(animation.value, [0, 1], [50, 0], Extrapolate.CLAMP);
-
         const width = interpolate(scrollY.value, [0, threshold], [WINDOW_WIDTH, SCREEN_WIDTH], Extrapolate.CLAMP);
         const targetHeight = SCREEN_HEIGHT + 100;
         const height = interpolate(scrollY.value, [0, threshold], [WINDOW_HEIGHT, targetHeight], Extrapolate.CLAMP);
-
-        // Exact offset to pull the window to the very top of the screen
         const topOffset = interpolate(scrollY.value, [0, threshold], [0, -(insets.top + 20 + 74)], Extrapolate.CLAMP);
 
         return {
@@ -218,15 +221,13 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
         };
     });
 
-    const contentAnimationStyle = useAnimatedStyle(() => {
-        return {
-            opacity: contentOpacity.value,
-            transform: [
-                { translateX: contentTranslateX.value },
-                { scale: contentScale.value }
-            ],
-        };
-    });
+    const contentAnimationStyle = useAnimatedStyle(() => ({
+        opacity: contentOpacity.value,
+        transform: [
+            { translateX: contentTranslateX.value },
+            { scale: contentScale.value }
+        ],
+    }));
 
     const backdropStyle = useAnimatedStyle(() => {
         const extraDarken = interpolate(scrollY.value, [0, 450], [0, 0.15], Extrapolate.CLAMP);
@@ -234,24 +235,28 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
     });
 
     const groupedProducts = useMemo(() => {
-        if (!activeVendor) return {};
-        const products = state.marketData?.products.filter((p: Product) =>
-            p.prices[activeVendor.id] !== undefined
-        ) || [];
-        const groups: Record<string, Product[]> = {};
+        const products = state.marketData?.products.filter((p: Product) => p.category === activeCategory.key) || [];
+        const groups: Record<string, { products: Product[], vendor: Vendor }> = {};
+
         products.forEach(p => {
-            if (!groups[p.category]) groups[p.category] = [];
-            groups[p.category].push(p);
+            Object.keys(p.prices).forEach(vendorId => {
+                const vendor = state.marketData?.vendors.find(v => v.id === vendorId);
+                if (vendor) {
+                    if (!groups[vendorId]) {
+                        groups[vendorId] = { products: [], vendor };
+                    }
+                    groups[vendorId].products.push(p);
+                }
+            });
         });
         return groups;
-    }, [activeVendor, state.marketData]);
+    }, [activeCategory, state.marketData]);
 
-    const handleAddItem = (item: any) => {
-        if (!activeVendor) return;
-        if (state.activeVendorId && state.activeVendorId !== activeVendor.id) {
+    const handleAddItem = (item: any, v: Vendor) => {
+        if (state.activeVendorId && state.activeVendorId !== v.id) {
             Alert.alert(
                 'Different Vendor',
-                `You already have items from ${state.activeVendorName || 'another vendor'}. Clear your cart to order from ${activeVendor.name}.`,
+                `You already have items from ${state.activeVendorName || 'another vendor'}. Clear your cart to order from ${v.name}.`,
                 [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -259,18 +264,18 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                         style: 'destructive',
                         onPress: () => {
                             dispatch({ type: 'CLEAR_CART' });
-                            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: activeVendor.id, vendorName: activeVendor.name, vendorImage: activeVendor.image } });
+                            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: v.id, vendorName: v.name, vendorImage: v.image } });
                             dispatch({
                                 type: 'ADD_TO_CART',
                                 payload: {
                                     id: item.id,
                                     name: item.name,
-                                    price: item.price,
+                                    price: item.prices[v.id],
                                     qty: 1,
                                     weight: '1kg',
-                                    vendor: activeVendor.name,
-                                    vendorId: activeVendor.id,
-                                    vendorImage: activeVendor.image || '',
+                                    vendor: v.name,
+                                    vendorId: v.id,
+                                    vendorImage: v.image || '',
                                     image: item.image || '',
                                 }
                             });
@@ -281,25 +286,25 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
             return;
         }
         if (!state.activeVendorId) {
-            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: activeVendor.id, vendorName: activeVendor.name, vendorImage: activeVendor.image } });
+            dispatch({ type: 'SET_ACTIVE_VENDOR', payload: { vendorId: v.id, vendorName: v.name, vendorImage: v.image } });
         }
         dispatch({
             type: 'ADD_TO_CART',
             payload: {
                 id: item.id,
                 name: item.name,
-                price: item.price,
+                price: item.prices[v.id],
                 qty: 1,
                 weight: '1kg',
-                vendor: activeVendor.name,
-                vendorId: activeVendor.id,
-                vendorImage: activeVendor.image || '',
+                vendor: v.name,
+                vendorId: v.id,
+                vendorImage: v.image || '',
                 image: item.image || '',
             }
         });
     };
 
-    if (!activeVendor || !shouldRender) return null;
+    if (!shouldRender) return null;
 
     return (
         <View style={styles.root}>
@@ -311,48 +316,28 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                 <Animated.View style={[styles.modalContent, modalContentStyle]}>
                     <GestureDetector gesture={swipeGesture}>
                         <Animated.View style={[styles.vendorPill, pillStyle]}>
-                            <TouchableOpacity
-                                onPress={handlePrevVendor}
-                                style={styles.navButton}
-                                activeOpacity={0.6}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
+                            <TouchableOpacity onPress={handlePrevCategory} style={styles.navButton}>
                                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
                                     <Path d="M15 18l-6-6 6-6" />
                                 </Svg>
                             </TouchableOpacity>
 
                             <Animated.View style={[styles.pillCenter, contentAnimationStyle]}>
-                                <Image source={resolveImageSource(activeVendor.image)} style={styles.pillAvatar} />
+                                <Image source={activeCategory.image} style={styles.pillAvatar} />
                                 <View style={styles.pillNameContainer}>
-                                    <Text style={styles.pillName} numberOfLines={1}>{activeVendor.name}</Text>
-                                    <View style={styles.pillMeta}>
-                                        <Svg width={10} height={10} viewBox="0 0 24 24" fill={Colors.brand.primary}>
-                                            <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                        </Svg>
-                                        <Text style={styles.pillRating}>{activeVendor.rating}</Text>
-                                    </View>
+                                    <Text style={styles.pillName} numberOfLines={1}>{activeCategory.name}</Text>
+                                    <Text style={styles.pillSubtext}>{Object.keys(groupedProducts).length} Shops nearby</Text>
                                 </View>
                             </Animated.View>
 
                             <View style={styles.navGroup}>
-                                <TouchableOpacity
-                                    onPress={handleNextVendor}
-                                    style={styles.navButton}
-                                    activeOpacity={0.6}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
+                                <TouchableOpacity onPress={handleNextCategory} style={styles.navButton}>
                                     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={Colors.light.text} strokeWidth={2.5}>
                                         <Path d="M9 18l6-6-6-6" />
                                     </Svg>
                                 </TouchableOpacity>
                                 <View style={styles.pillDivider} />
-                                <TouchableOpacity
-                                    onPress={onClose}
-                                    style={styles.pillClose}
-                                    activeOpacity={0.6}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
+                                <TouchableOpacity onPress={onClose} style={styles.pillClose}>
                                     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={Colors.light.textMuted} strokeWidth={2.5}>
                                         <Path d="M18 6L6 18M6 6l12 12" />
                                     </Svg>
@@ -372,13 +357,14 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                             >
                                 {Object.entries(groupedProducts).length === 0 ? (
                                     <View style={styles.emptyState}>
-                                        <Text style={styles.emptyText}>No items available</Text>
+                                        <Text style={styles.emptyText}>No items available in this category</Text>
                                     </View>
                                 ) : (
-                                    Object.entries(groupedProducts).map(([category, products]) => (
-                                        <View key={category} style={styles.categorySection}>
+                                    Object.entries(groupedProducts).map(([vendorId, { products, vendor }]) => (
+                                        <View key={vendorId} style={styles.categorySection}>
                                             <View style={styles.categoryHeader}>
-                                                <Text style={styles.categoryTitle}>{category.toUpperCase()}</Text>
+                                                <Image source={resolveImageSource(vendor.image)} style={styles.vendorIcon} />
+                                                <Text style={styles.categoryTitle}>{vendor.name.toUpperCase()}</Text>
                                                 <View style={styles.categoryLine} />
                                             </View>
                                             <View style={styles.productGrid}>
@@ -389,24 +375,19 @@ export default function VendorSheet({ isVisible, onClose, vendor }: Props) {
                                                             productName={product.name}
                                                             productImage={product.image}
                                                             vendor={{
-                                                                vendorId: activeVendor.id,
-                                                                vendorName: activeVendor.name,
-                                                                vendorImage: activeVendor.image,
-                                                                vendorRating: activeVendor.rating,
-                                                                vendorDistance: activeVendor.distance,
-                                                                price: product.prices[activeVendor.id],
+                                                                vendorId: vendor.id,
+                                                                vendorName: vendor.name,
+                                                                vendorImage: vendor.image,
+                                                                vendorRating: vendor.rating,
+                                                                vendorDistance: vendor.distance,
+                                                                price: product.prices[vendor.id],
                                                             }}
                                                             variant="grid"
                                                             onDragStart={() => { }}
                                                             onDragEnd={() => { }}
                                                             dragX={dummyDragX}
                                                             dragY={dummyDragY}
-                                                            onSelect={() => handleAddItem({
-                                                                id: product.id,
-                                                                name: product.name,
-                                                                price: product.prices[activeVendor.id],
-                                                                image: product.image
-                                                            })}
+                                                            onSelect={() => handleAddItem(product, vendor)}
                                                         />
                                                     </View>
                                                 ))}
@@ -481,17 +462,10 @@ const styles = StyleSheet.create({
         color: Colors.light.text,
         textAlign: 'center',
     },
-    pillMeta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-        marginTop: 2,
-    },
-    pillRating: {
-        fontFamily: Typography.fontFamily.bodyBold,
-        fontSize: 11,
-        color: Colors.brand.primary,
+    pillSubtext: {
+        fontFamily: Typography.fontFamily.body,
+        fontSize: 10,
+        color: Colors.light.textMuted,
         textAlign: 'center',
     },
     navGroup: {
@@ -532,7 +506,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: Spacing.xl,
-        paddingBottom: 160, // Ensure items can clear the chat bar in full screen
+        paddingBottom: 160,
     },
     categorySection: {
         marginBottom: 32,
@@ -542,6 +516,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         marginBottom: 20,
+    },
+    vendorIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
     },
     categoryTitle: {
         fontFamily: Typography.fontFamily.headingBold,

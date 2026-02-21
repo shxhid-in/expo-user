@@ -43,6 +43,7 @@ import {
 import LocationSheet from '../../components/common/LocationSheet';
 import ProfileSheet from '../../components/common/ProfileSheet';
 import VendorSheet from '../../components/common/VendorSheet';
+import CategorySheet from '../../components/common/CategorySheet';
 
 const { width } = Dimensions.get('window');
 
@@ -71,6 +72,8 @@ export default function ChatScreen({ navigation, route }: Props) {
     const [isProfileSheetVisible, setIsProfileSheetVisible] = useState(false);
     const [isVendorSheetVisible, setIsVendorSheetVisible] = useState(false);
     const [selectedVendorForSheet, setSelectedVendorForSheet] = useState<Vendor | null>(null);
+    const [isCategorySheetVisible, setIsCategorySheetVisible] = useState(false);
+    const [selectedCategoryKeyForSheet, setSelectedCategoryKeyForSheet] = useState<string | null>(null);
     const flatListRef = useRef<FlatList>(null);
     const insets = useSafeAreaInsets();
 
@@ -544,12 +547,10 @@ export default function ChatScreen({ navigation, route }: Props) {
                     <TouchableOpacity
                         key={cat.key}
                         style={styles.categoryItem}
-                        onPress={() =>
-                            navigation.navigate('CategoryMarketplace', {
-                                categoryName: cat.key,
-                                categoryDisplayName: cat.name,
-                            })
-                        }
+                        onPress={() => {
+                            setSelectedCategoryKeyForSheet(cat.key);
+                            setIsCategorySheetVisible(true);
+                        }}
                     >
                         <View style={styles.categoryImageWrap}>
                             <Image source={cat.image} style={styles.categoryImage} resizeMode="cover" />
@@ -959,6 +960,12 @@ export default function ChatScreen({ navigation, route }: Props) {
                 isVisible={isVendorSheetVisible}
                 onClose={() => setIsVendorSheetVisible(false)}
                 vendor={selectedVendorForSheet}
+            />
+
+            <CategorySheet
+                isVisible={isCategorySheetVisible}
+                onClose={() => setIsCategorySheetVisible(false)}
+                categoryKey={selectedCategoryKeyForSheet}
             />
         </GestureHandlerRootView>
     );

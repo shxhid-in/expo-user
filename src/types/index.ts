@@ -13,8 +13,6 @@ export type MainStackParamList = {
     Profile: undefined;
     Location: undefined;
     UPIPayment: { total: number };
-    VendorStore: { vendor: Vendor };
-    CategoryMarketplace: { categoryName: string; categoryDisplayName: string };
     OrderPlaced: { orderId: string; vendorCount: number };
 };
 
