@@ -13,6 +13,7 @@ import {
     Platform,
     ActivityIndicator,
     Alert,
+    ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlatList } from 'react-native-gesture-handler';
@@ -41,6 +42,7 @@ import {
 } from '../../components/common/OrderStageCard';
 import LocationSheet from '../../components/common/LocationSheet';
 import ProfileSheet from '../../components/common/ProfileSheet';
+import VendorSheet from '../../components/common/VendorSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -49,26 +51,26 @@ type Props = {
     route: RouteProp<MainStackParamList, 'Chat'>;
 };
 
-// Category data with local images
 const CATEGORIES = [
-    { name: 'Fish & Seafood', key: 'seafood', image: require('../../../assets/Tiger prawns.png') },
-    { name: 'Poultry', key: 'poultry', image: require('../../../assets/Chicekn curry cut.jpg') },
+    { name: 'Chicken', key: 'poultry', image: require('../../../assets/Chicekn curry cut.jpg') },
     { name: 'Mutton', key: 'mutton', image: require('../../../assets/Mutton Ribbs.jpg') },
     { name: 'Beef', key: 'beef', image: require('../../../assets/beef boneless.jpg') },
-    { name: 'Fillets', key: 'fillets', image: require('../../../assets/salmon.jpg') },
-    { name: 'Whole Chicken', key: 'whole_chicken', image: require('../../../assets/Whole chicken.jpg') },
+    { name: 'Fish', key: 'fish', image: require('../../../assets/Mackerel.png') },
+    { name: 'Seafood', key: 'seafood', image: require('../../../assets/Tiger prawns.png') },
+    { name: 'Steak Fishes', key: 'steak_fishes', image: require('../../../assets/salmon.jpg') },
 ];
 
 export default function ChatScreen({ navigation, route }: Props) {
     const { state, dispatch } = useAppState();
     const [message, setMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const [isVendorsExpanded, setIsVendorsExpanded] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cod' | null>(null);
     const [isFocused, setIsFocused] = useState(false);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const [isLocationSheetVisible, setIsLocationSheetVisible] = useState(false);
     const [isProfileSheetVisible, setIsProfileSheetVisible] = useState(false);
+    const [isVendorSheetVisible, setIsVendorSheetVisible] = useState(false);
+    const [selectedVendorForSheet, setSelectedVendorForSheet] = useState<Vendor | null>(null);
     const flatListRef = useRef<FlatList>(null);
     const insets = useSafeAreaInsets();
 
@@ -560,9 +562,16 @@ export default function ChatScreen({ navigation, route }: Props) {
     );
 
     const renderVendorGrid = useCallback((vendors: Vendor[]) => (
-        <View style={styles.vendorSection}>
-            <Text style={styles.vendorSectionTitle}>Nearby Fresh Vendors</Text>
-            <View style={styles.vendorGrid}>
+        <View style={{ marginBottom: Spacing.lg }}>
+            <Text style={styles.vendorSectionTitle}>
+                Nearby Fresh Vendors
+            </Text>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.vendorScrollContainer}
+                style={{ paddingLeft: Spacing.lg }}
+            >
                 {vendors.map((vendor) => (
                     <DraggableItem
                         key={vendor.id}
@@ -575,7 +584,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                             vendorImage: vendor.image,
                             vendorRating: vendor.rating,
                             vendorDistance: vendor.distance,
-                            price: 0, // Not needed for vendor drag
+                            price: 0,
                         }}
                         variant="vendor-card"
                         onDragStart={(item: any) => {
@@ -593,78 +602,22 @@ export default function ChatScreen({ navigation, route }: Props) {
                         }}
                         dragX={dragX}
                         dragY={dragY}
-                        onSelect={() => navigation.navigate('VendorStore', { vendor })}
+                        onSelect={() => {
+                            setSelectedVendorForSheet(vendor);
+                            setIsVendorSheetVisible(true);
+                        }}
                     />
                 ))}
-            </View>
+            </ScrollView>
         </View>
-    ), [navigation, handleDrop]);
+    ), [navigation, handleDrop, dragX, dragY, isDragging]);
 
     const renderVendorGridSection = useCallback(() => {
         const vendors = state.marketData?.vendors;
         if (!vendors || vendors.length === 0) return null;
 
-        const visibleVendors = isVendorsExpanded ? vendors : vendors.slice(0, 4);
-        const hasMore = vendors.length > 4;
-
-        return (
-            <View style={styles.vendorSection}>
-                <Text style={styles.vendorSectionTitle}>Nearby Fresh Vendors</Text>
-                <View style={styles.vendorGrid}>
-                    {visibleVendors.map((vendor) => (
-                        <DraggableItem
-                            key={vendor.id}
-                            productId={vendor.id}
-                            productName={vendor.name}
-                            productImage={vendor.image}
-                            vendor={{
-                                vendorId: vendor.id,
-                                vendorName: vendor.name,
-                                vendorImage: vendor.image,
-                                vendorRating: vendor.rating,
-                                vendorDistance: vendor.distance,
-                                price: 0, // Not needed for vendor drag
-                            }}
-                            variant="vendor-card"
-                            onDragStart={(item: any) => {
-                                setDraggedItem(item);
-                                isDragging.value = true;
-                            }}
-                            onDragEnd={(x: number, y: number, item: any) => {
-                                const screenHeight = Dimensions.get('window').height;
-                                if (y > screenHeight - 200) {
-                                    handleDrop(item);
-                                } else {
-                                    setDraggedItem(null);
-                                    isDragging.value = false;
-                                }
-                            }}
-                            dragX={dragX}
-                            dragY={dragY}
-                            onSelect={() => navigation.navigate('VendorStore', { vendor })}
-                        />
-                    ))}
-                </View>
-                {hasMore && (
-                    <TouchableOpacity
-                        style={styles.viewMoreButton}
-                        onPress={() => setIsVendorsExpanded(!isVendorsExpanded)}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.viewMoreText}>
-                            {isVendorsExpanded ? 'View less' : 'View more shops'}
-                        </Text>
-                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={Colors.brand.primary} strokeWidth={2.5}>
-                            {isVendorsExpanded
-                                ? <Path d="M18 15l-6-6-6 6" />
-                                : <Path d="M6 9l6 6 6-6" />
-                            }
-                        </Svg>
-                    </TouchableOpacity>
-                )}
-            </View>
-        );
-    }, [state.marketData?.vendors, isVendorsExpanded, navigation, handleDrop]);
+        return renderVendorGrid(vendors);
+    }, [state.marketData?.vendors, renderVendorGrid]);
 
     const isConfirmed = state.activeOrderStage === 'assigning_partner' ||
         state.activeOrderStage === 'partner_assigned' ||
@@ -936,11 +889,13 @@ export default function ChatScreen({ navigation, route }: Props) {
                                     </View>
                                 )}
 
-                                <View style={styles.inputRow}>
+                                <View style={[styles.premiumInputWrapper, isFocused && styles.premiumInputWrapperFocused]}>
+                                    <View style={styles.aiIconContainer}>
+                                        <Text style={{ fontSize: 16 }}>✨</Text>
+                                    </View>
                                     <TextInput
                                         style={[
                                             styles.chatInput,
-                                            isFocused && styles.chatInputFocused,
                                             Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)
                                         ]}
                                         placeholder={tags.length > 0 ? "Add details..." : "Type a message or ask Ezer..."}
@@ -998,6 +953,12 @@ export default function ChatScreen({ navigation, route }: Props) {
                 isVisible={isProfileSheetVisible}
                 onClose={() => setIsProfileSheetVisible(false)}
                 onOpenLocation={() => setIsLocationSheetVisible(true)}
+            />
+
+            <VendorSheet
+                isVisible={isVendorSheetVisible}
+                onClose={() => setIsVendorSheetVisible(false)}
+                vendor={selectedVendorForSheet}
             />
         </GestureHandlerRootView>
     );
@@ -1070,12 +1031,11 @@ const styles = StyleSheet.create({
     messagesList: {
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.lg,
-        paddingBottom: Spacing.md,
+        paddingBottom: 300,
     },
 
     // --- Category Grid ---
     categorySection: {
-        paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
         marginBottom: Spacing.lg,
     },
@@ -1083,13 +1043,15 @@ const styles = StyleSheet.create({
         fontFamily: Typography.fontFamily.headingBold,
         fontSize: 18,
         color: Colors.light.text,
-        textAlign: 'center',
-        marginBottom: Spacing.md,
+        textAlign: 'left',
+        paddingHorizontal: Spacing.lg,
+        marginBottom: 12,
     },
     categoryGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
+        paddingHorizontal: Spacing.lg,
         rowGap: 12,
     },
     categoryItem: {
@@ -1131,16 +1093,20 @@ const styles = StyleSheet.create({
         fontFamily: Typography.fontFamily.headingBold,
         fontSize: 18,
         color: Colors.light.text,
-        textAlign: 'center',
-        marginBottom: Spacing.lg,
+        textAlign: 'left',
+        paddingHorizontal: Spacing.lg,
+        marginBottom: 12,
     },
     vendorGrid: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
+        gap: 12,
+    },
+    vendorScrollContainer: {
+        paddingRight: Spacing.xl,
+        gap: 12,
     },
     vendorCard: {
-        width: (width - 80) / 2 - 5,
+        width: 150, // Fixed width for horizontal scrolling
         backgroundColor: Colors.light.background,
         borderRadius: BorderRadius['3xl'],
         padding: Spacing.md,
@@ -1304,87 +1270,88 @@ const styles = StyleSheet.create({
 
     // --- Input Bar ---
     // --- Input Bar ---
+    // --- Input Bar ---
     outerBottomContainer: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
         justifyContent: 'flex-end',
-        zIndex: 100,
+        zIndex: 3000,
     },
     bottomGradient: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        height: 180, // Tall enough to create a beautiful fade
+        height: 180,
     },
     bottomGuard: {
-        height: 16, // Solid white section at the absolute bottom
+        height: 16,
         backgroundColor: Colors.light.background,
     },
     inputBar: {
+        width: Math.min(Dimensions.get('window').width - 32, 450),
+        alignSelf: 'center',
+        paddingTop: 8,
+        backgroundColor: 'transparent',
+    },
+    inputContainer: {
+        flexDirection: 'column',
+    },
+    premiumInputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingTop: 12,
-        backgroundColor: 'transparent', // Transparent background to show the gradient
-        gap: 12,
+        backgroundColor: Colors.neutral.white,
+        borderRadius: 32,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        ...Shadows.cardHover,
+        shadowColor: Colors.brand.primary,
+        shadowOpacity: 0.1,
+    },
+    premiumInputWrapperFocused: {
+        borderColor: Colors.brand.primary,
+        shadowOpacity: 0.2,
+        backgroundColor: '#FFFFFF',
+    },
+    aiIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: Colors.brand.primarySoft,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 4,
     },
     chatInput: {
         flex: 1,
-        fontFamily: Typography.fontFamily.body,
+        fontFamily: Typography.fontFamily.bodyMedium,
         fontSize: 15,
         color: Colors.light.text,
-        backgroundColor: '#E6F2F2',
-        borderRadius: 28,
-        paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 12,
-        minHeight: 50,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minHeight: 44,
         maxHeight: 120,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 8,
-        textAlignVertical: 'center',
-        includeFontPadding: false,
-    },
-    chatInputFocused: {
-        borderColor: Colors.brand.primary,
-        borderWidth: 1.5,
-        backgroundColor: Colors.neutral.white,
     },
     sendButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#E6F2F2', // Solid light teal to match the location pin (no glass effect)
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.brand.primarySoft,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 8,
     },
     sendButtonActive: {
         backgroundColor: Colors.brand.primary,
-        shadowColor: Colors.brand.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 4,
-        transform: [{ scale: 1.05 }],
-    },
-    inputContainer: {
-        flex: 1,
+        ...Shadows.button,
     },
     inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
     },
     tagsContainer: {
         flexDirection: 'row',

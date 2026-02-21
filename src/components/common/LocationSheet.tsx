@@ -12,6 +12,7 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
     Easing,
+    runOnJS,
 } from 'react-native-reanimated';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -38,9 +39,11 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
 
     const translateY = useSharedValue(-SHEET_HEIGHT);
     const opacity = useSharedValue(0);
+    const [shouldRender, setShouldRender] = React.useState(isVisible);
 
     useEffect(() => {
         if (isVisible) {
+            setShouldRender(true);
             opacity.value = withTiming(1, { duration: 300 });
             translateY.value = withTiming(0, {
                 duration: 400,
@@ -51,6 +54,10 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
             translateY.value = withTiming(-SHEET_HEIGHT, {
                 duration: 300,
                 easing: Easing.in(Easing.cubic),
+            }, (finished) => {
+                if (finished) {
+                    runOnJS(setShouldRender)(false);
+                }
             });
         }
     }, [isVisible]);
@@ -80,7 +87,7 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
         onClose();
     };
 
-    if (!isVisible && opacity.value === 0) return null;
+    if (!shouldRender) return null;
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents={isVisible ? 'auto' : 'none'}>

@@ -115,13 +115,6 @@ export default function DraggableItem({
 
                     <View style={styles.vendorCardFooter}>
                         <View style={styles.vendorCardMetaItem}>
-                            <Svg width={12} height={12} viewBox="0 0 24 24" fill={Colors.brand.primary} stroke={Colors.brand.primary} strokeWidth={2}>
-                                <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </Svg>
-                            <Text style={styles.vendorCardMetaText}>{vendor.vendorRating}</Text>
-                        </View>
-                        <Text style={styles.vendorCardDot}>•</Text>
-                        <View style={styles.vendorCardMetaItem}>
                             <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={Colors.light.textMuted} strokeWidth={2}>
                                 <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                                 <Circle cx={12} cy={10} r={3} />

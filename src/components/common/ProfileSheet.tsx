@@ -13,6 +13,7 @@ import Animated, {
     useAnimatedStyle,
     withTiming,
     Easing,
+    runOnJS,
 } from 'react-native-reanimated';
 import { Colors, Typography, Shadows, BorderRadius, Spacing } from '../../theme';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -34,11 +35,13 @@ export default function ProfileSheet({ isVisible, onClose, onOpenLocation }: Pro
     const insets = useSafeAreaInsets();
     const user = state.user;
 
-    const translateY = useSharedValue(SHEET_HEIGHT);
-    const opacity = useSharedValue(0);
+    const translateY = useSharedValue(SHEET_HEIGHT); // Added
+    const opacity = useSharedValue(0); // Added
+    const [shouldRender, setShouldRender] = React.useState(isVisible);
 
     useEffect(() => {
         if (isVisible) {
+            setShouldRender(true);
             opacity.value = withTiming(1, { duration: 300 });
             translateY.value = withTiming(0, {
                 duration: 400,
@@ -46,9 +49,13 @@ export default function ProfileSheet({ isVisible, onClose, onOpenLocation }: Pro
             });
         } else {
             opacity.value = withTiming(0, { duration: 250 });
-            translateY.value = withTiming(SHEET_HEIGHT, {
+            translateY.value = withTiming(SHEET_HEIGHT, { // Changed from -SHEET_HEIGHT to SHEET_HEIGHT
                 duration: 300,
                 easing: Easing.in(Easing.cubic),
+            }, (finished) => {
+                if (finished) {
+                    runOnJS(setShouldRender)(false); // Added runOnJS
+                }
             });
         }
     }, [isVisible]);
@@ -73,7 +80,7 @@ export default function ProfileSheet({ isVisible, onClose, onOpenLocation }: Pro
 
     const memberDate = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-    if (!isVisible && opacity.value === 0) return null;
+    if (!shouldRender) return null;
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents={isVisible ? 'auto' : 'none'}>
