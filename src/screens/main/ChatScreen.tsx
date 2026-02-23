@@ -68,6 +68,7 @@ export default function ChatScreen({ navigation, route }: Props) {
     const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cod' | null>(null);
     const [isFocused, setIsFocused] = useState(false);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [isLocationSheetVisible, setIsLocationSheetVisible] = useState(false);
     const [isProfileSheetVisible, setIsProfileSheetVisible] = useState(false);
     const [isVendorSheetVisible, setIsVendorSheetVisible] = useState(false);
@@ -81,8 +82,9 @@ export default function ChatScreen({ navigation, route }: Props) {
     useEffect(() => {
         const showSub = Keyboard.addListener(
             Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            () => {
+            (e) => {
                 setKeyboardVisible(true);
+                setKeyboardHeight(e.endCoordinates.height);
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
             }
         );
@@ -90,6 +92,7 @@ export default function ChatScreen({ navigation, route }: Props) {
             Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
             () => {
                 setKeyboardVisible(false);
+                setKeyboardHeight(0);
             }
         );
         return () => {
@@ -171,12 +174,15 @@ export default function ChatScreen({ navigation, route }: Props) {
         if (!text && state.tags.length === 0) return;
 
         setMessage('');
+        setIsVendorSheetVisible(false);
+        setIsCategorySheetVisible(false);
+
         const currentTags = [...state.tags];
         dispatch({ type: 'CLEAR_TAGS' });
 
         // Add user message
         const displayMessage = text || (currentTags.length > 0 ? `I need items from ${currentTags[0].vendorName}` : '');
-        const userMsg = createMessage(displayMessage, 'user');
+        const userMsg = createMessage(displayMessage, 'user', 'text', { tags: currentTags });
         dispatch({ type: 'ADD_MESSAGE', payload: userMsg });
 
         // Show typing indicator
@@ -597,6 +603,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                                 const screenHeight = Dimensions.get('window').height;
                                 if (y > screenHeight - 200) {
                                     handleDrop(item);
+                                } else {
                                     setDraggedItem(null);
                                     isDragging.value = false;
                                 }
@@ -753,7 +760,21 @@ export default function ChatScreen({ navigation, route }: Props) {
         return (
             <View style={[styles.messageRow, isUser ? styles.messageUserRow : styles.messageBotRow]}>
                 <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.botBubble]}>
-                    <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>{item.text}</Text>
+                    {isUser && item.data?.tags && item.data.tags.length > 0 && (
+                        <View style={styles.messageTagsContainer}>
+                            {item.data.tags.map((tag: any, idx: number) => (
+                                <View key={idx} style={styles.messageTag}>
+                                    <Image source={resolveImageSource(tag.image)} style={styles.messageTagImage} />
+                                    <Text style={styles.messageTagText} numberOfLines={1}>
+                                        {tag.isProduct ? (tag.productName || tag.name) : tag.vendorName}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {!!item.text && (
+                        <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>{item.text}</Text>
+                    )}
                 </View>
             </View>
         );
@@ -820,7 +841,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                     ) : null}
 
                     {/* Floating Input Area with Gradient Background */}
-                    <View style={styles.outerBottomContainer} pointerEvents="box-none">
+                    <View style={[styles.outerBottomContainer, { bottom: keyboardHeight }]} pointerEvents="box-none">
                         <LinearGradient
                             colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.98)', '#ffffff']}
                             style={styles.bottomGradient}
@@ -845,7 +866,7 @@ export default function ChatScreen({ navigation, route }: Props) {
                                             <View key={idx} style={styles.tag}>
                                                 <Image source={resolveImageSource(tag.image)} style={styles.tagImage} />
                                                 <Text style={styles.tagText} numberOfLines={1}>
-                                                    {tag.isProduct ? tag.productName : tag.vendorName}
+                                                    {tag.isProduct ? (tag.productName || tag.name) : tag.vendorName}
                                                 </Text>
                                                 <TouchableOpacity onPress={() => removeTag(idx)} style={styles.removeTag}>
                                                     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={Colors.neutral.white} strokeWidth={2.5}>
@@ -928,6 +949,15 @@ export default function ChatScreen({ navigation, route }: Props) {
                     setDraggedItem(item);
                     isDragging.value = true;
                 }}
+                onDragEnd={(x: number, y: number, item: any) => {
+                    const screenHeight = Dimensions.get('window').height;
+                    if (y > screenHeight - 200) {
+                        handleDrop(item);
+                    } else {
+                        setDraggedItem(null);
+                        isDragging.value = false;
+                    }
+                }}
                 dragX={dragX}
                 dragY={dragY}
             />
@@ -939,6 +969,15 @@ export default function ChatScreen({ navigation, route }: Props) {
                 onDragStart={(item: any) => {
                     setDraggedItem(item);
                     isDragging.value = true;
+                }}
+                onDragEnd={(x: number, y: number, item: any) => {
+                    const screenHeight = Dimensions.get('window').height;
+                    if (y > screenHeight - 200) {
+                        handleDrop(item);
+                    } else {
+                        setDraggedItem(null);
+                        isDragging.value = false;
+                    }
                 }}
                 dragX={dragX}
                 dragY={dragY}
@@ -1176,7 +1215,7 @@ const styles = StyleSheet.create({
     // --- Message Bubbles ---
     messageRow: {
         flexDirection: 'row',
-        marginBottom: 4,
+        marginBottom: 16,
         maxWidth: '75%',
     },
     messageUserRow: {
@@ -1189,7 +1228,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignSelf: 'flex-start',
         alignItems: 'flex-start',
-        marginBottom: 4,
+        marginBottom: 16,
         maxWidth: '88%',
     },
     messageBubble: {
@@ -1223,6 +1262,32 @@ const styles = StyleSheet.create({
     botText: {
         fontFamily: Typography.fontFamily.body,
         color: Colors.light.text,
+    },
+    messageTagsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 8,
+    },
+    messageTag: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 12,
+        padding: 8,
+        width: 84, // box width
+    },
+    messageTagImage: {
+        width: 68,
+        height: 68,
+        borderRadius: 8,
+        marginBottom: 6,
+    },
+    messageTagText: {
+        fontFamily: Typography.fontFamily.bodySemiBold,
+        fontSize: 10,
+        color: Colors.neutral.white,
+        textAlign: 'center',
     },
     typingContainer: {
         flexDirection: 'row',

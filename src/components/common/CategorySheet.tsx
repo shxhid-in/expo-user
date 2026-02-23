@@ -52,11 +52,12 @@ interface Props {
     onClose: () => void;
     categoryKey: string | null;
     onDragStart: (item: any) => void;
+    onDragEnd: (x: number, y: number, item: any) => void;
     dragX: SharedValue<number>;
     dragY: SharedValue<number>;
 }
 
-export default function CategorySheet({ isVisible, onClose, categoryKey, onDragStart, dragX, dragY }: Props) {
+export default function CategorySheet({ isVisible, onClose, categoryKey, onDragStart, onDragEnd, dragX, dragY }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
 
@@ -272,11 +273,7 @@ export default function CategorySheet({ isVisible, onClose, categoryKey, onDragS
         return unique;
     }, [activeCategory, state.marketData, state.activeVendorId]);
 
-    const handleDrop = useCallback((item: any) => {
-        const screenHeight = Dimensions.get('window').height;
-        // Logic similar to ChatScreen - drop near bottom triggers tag
-        dispatch({ type: 'ADD_TAG', payload: item });
-    }, [dispatch]);
+    // Removed localized handleDrop as ChatScreen will manage state through onDragEnd
 
     const handleAddItem = (item: any, v: Vendor) => {
         // Tag the item/vendor on click as well
@@ -404,10 +401,7 @@ export default function CategorySheet({ isVisible, onClose, categoryKey, onDragS
                                                     variant="grid"
                                                     onDragStart={onDragStart}
                                                     onDragEnd={(x, y, item) => {
-                                                        const screenHeight = Dimensions.get('window').height;
-                                                        if (y > screenHeight - 200) {
-                                                            runOnJS(handleDrop)(item);
-                                                        }
+                                                        runOnJS(onDragEnd)(x, y, item);
                                                     }}
                                                     dragX={dragX}
                                                     dragY={dragY}

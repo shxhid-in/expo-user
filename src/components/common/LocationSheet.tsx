@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     Dimensions,
     Pressable,
+    TextInput,
 } from 'react-native';
 import Animated, {
     useSharedValue,
@@ -27,15 +28,15 @@ interface Props {
     onClose: () => void;
 }
 
-const SAVED_ADDRESSES = [
-    { label: 'Pkd', location: 'Palakkad, bezgo HQ, near Shadi Mahal', icon: 'home' },
-    { label: 'Work', location: '123 Business Park, City Center', icon: 'work' },
-];
-
 export default function LocationSheet({ isVisible, onClose }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
     const HEADER_HEIGHT = insets.top + 62; // Precise height of the ChatScreen header
+
+    const [savedAddresses, setSavedAddresses] = useState<Array<{ label: string, location: string, icon: string }>>([]);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newLabel, setNewLabel] = useState('');
+    const [newLocation, setNewLocation] = useState('');
 
     const translateY = useSharedValue(-SHEET_HEIGHT);
     const opacity = useSharedValue(0);
@@ -82,9 +83,25 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
     const handleUseCurrentLocation = () => {
         dispatch({
             type: 'SET_LOCATION',
-            payload: { location: 'Pkd, bezgo HQ near Shadhi Mahal', label: 'Pkd' },
+            payload: { location: 'Current Location', label: 'Current Location' },
         });
         onClose();
+    };
+
+    const handleSaveNewLocation = () => {
+        if (!newLabel.trim() || !newLocation.trim()) return;
+        const newAddr = { label: newLabel.trim(), location: newLocation.trim(), icon: 'home' };
+        setSavedAddresses([...savedAddresses, newAddr]);
+        handleSelectLocation(newAddr.location, newAddr.label);
+        setNewLabel('');
+        setNewLocation('');
+        setIsAdding(false);
+    };
+
+    const handleDeleteLocation = (index: number) => {
+        const updatedAddresses = [...savedAddresses];
+        updatedAddresses.splice(index, 1);
+        setSavedAddresses(updatedAddresses);
     };
 
     if (!shouldRender) return null;
@@ -124,9 +141,9 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
                             </View>
                         </TouchableOpacity>
 
-                        <Text style={styles.sectionTitle}>SAVED ADDRESSES</Text>
+                        {savedAddresses.length > 0 && <Text style={styles.sectionTitle}>SAVED ADDRESSES</Text>}
 
-                        {SAVED_ADDRESSES.map((addr, index) => (
+                        {savedAddresses.map((addr, index) => (
                             <TouchableOpacity
                                 key={index}
                                 style={styles.addressItem}
@@ -150,15 +167,57 @@ export default function LocationSheet({ isVisible, onClose }: Props) {
                                         <View style={styles.activeDot} />
                                     </View>
                                 )}
+                                <TouchableOpacity
+                                    style={styles.deleteLocationButton}
+                                    onPress={() => handleDeleteLocation(index)}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={Colors.light.textMuted} strokeWidth={2.5}>
+                                        <Path d="M18 6L6 18M6 6l12 12" />
+                                    </Svg>
+                                </TouchableOpacity>
                             </TouchableOpacity>
                         ))}
 
-                        <TouchableOpacity style={styles.addLocation}>
-                            <View style={[styles.iconContainerSmall, { backgroundColor: Colors.brand.primarySoft }]}>
-                                <Text style={styles.plusIcon}>+</Text>
+                        {isAdding ? (
+                            <View style={styles.addingContainer}>
+                                <Text style={styles.sectionTitle}>ADD NEW LOCATION</Text>
+                                <TextInput
+                                    style={styles.inputField}
+                                    placeholder="Label (e.g. Home, Office)"
+                                    placeholderTextColor={Colors.light.textMuted}
+                                    value={newLabel}
+                                    onChangeText={setNewLabel}
+                                    autoFocus
+                                />
+                                <TextInput
+                                    style={styles.inputField}
+                                    placeholder="Full Address"
+                                    placeholderTextColor={Colors.light.textMuted}
+                                    value={newLocation}
+                                    onChangeText={setNewLocation}
+                                />
+                                <View style={styles.formActions}>
+                                    <TouchableOpacity style={styles.cancelButton} onPress={() => setIsAdding(false)}>
+                                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.saveButton, (!newLabel.trim() || !newLocation.trim()) && styles.saveButtonDisabled]}
+                                        onPress={handleSaveNewLocation}
+                                        disabled={!newLabel.trim() || !newLocation.trim()}
+                                    >
+                                        <Text style={styles.saveButtonText}>Save & Select</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <Text style={styles.addLocationText}>Add new location</Text>
-                        </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity style={styles.addLocation} onPress={() => setIsAdding(true)}>
+                                <View style={[styles.iconContainerSmall, { backgroundColor: Colors.brand.primarySoft }]}>
+                                    <Text style={styles.plusIcon}>+</Text>
+                                </View>
+                                <Text style={styles.addLocationText}>Add new location</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                     <View style={styles.handle} />
                 </Animated.View>
@@ -298,6 +357,10 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: Colors.brand.primary,
     },
+    deleteLocationButton: {
+        padding: Spacing.xs,
+        marginLeft: Spacing.sm,
+    },
     addLocation: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -322,5 +385,51 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         alignSelf: 'center',
         marginBottom: 8,
+    },
+    addingContainer: {
+        marginTop: Spacing.xl,
+        backgroundColor: Colors.light.backgroundSecondary,
+        padding: Spacing.lg,
+        borderRadius: BorderRadius['2xl'],
+    },
+    inputField: {
+        backgroundColor: Colors.light.background,
+        borderRadius: BorderRadius.lg,
+        padding: Spacing.md,
+        fontFamily: Typography.fontFamily.bodyMedium,
+        fontSize: 14,
+        color: Colors.light.text,
+        marginBottom: Spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    formActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
+    },
+    cancelButton: {
+        paddingVertical: 10,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.light.background,
+    },
+    cancelButtonText: {
+        fontFamily: Typography.fontFamily.bodySemiBold,
+        color: Colors.light.textMuted,
+    },
+    saveButton: {
+        paddingVertical: 10,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.brand.primary,
+    },
+    saveButtonDisabled: {
+        backgroundColor: Colors.light.border,
+    },
+    saveButtonText: {
+        fontFamily: Typography.fontFamily.bodySemiBold,
+        color: Colors.neutral.white,
     },
 });

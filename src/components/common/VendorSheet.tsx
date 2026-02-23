@@ -41,11 +41,12 @@ interface Props {
     onClose: () => void;
     vendor: Vendor | null;
     onDragStart: (item: any) => void;
+    onDragEnd: (x: number, y: number, item: any) => void;
     dragX: SharedValue<number>;
     dragY: SharedValue<number>;
 }
 
-export default function VendorSheet({ isVisible, onClose, vendor, onDragStart, dragX, dragY }: Props) {
+export default function VendorSheet({ isVisible, onClose, vendor, onDragStart, onDragEnd, dragX, dragY }: Props) {
     const { state, dispatch } = useAppState();
     const insets = useSafeAreaInsets();
 
@@ -241,9 +242,7 @@ export default function VendorSheet({ isVisible, onClose, vendor, onDragStart, d
         return { opacity: animation.value + extraDarken };
     });
 
-    const handleDrop = useCallback((item: any) => {
-        dispatch({ type: 'ADD_TAG', payload: item });
-    }, [dispatch]);
+    // Removed localized handleDrop as ChatScreen will manage state through onDragEnd
 
     const groupedProducts = useMemo(() => {
         if (!activeVendor) return {};
@@ -415,10 +414,7 @@ export default function VendorSheet({ isVisible, onClose, vendor, onDragStart, d
                                                             }}
                                                             onDragStart={onDragStart}
                                                             onDragEnd={(x: number, y: number, item: any) => {
-                                                                const screenHeight = Dimensions.get('window').height;
-                                                                if (y > screenHeight - 200) {
-                                                                    runOnJS(handleDrop)(item);
-                                                                }
+                                                                runOnJS(onDragEnd)(x, y, item);
                                                             }}
                                                             dragX={dragX}
                                                             dragY={dragY}

@@ -36,8 +36,8 @@ const initialState: AppState = {
     isLoading: false,
     isDarkMode: false,
     brandColor: 'teal',
-    currentLocation: 'Pkd, bezgo HQ near Shadhi Mahal',
-    currentLocationLabel: 'Pkd',
+    currentLocation: 'Tap to add your location',
+    currentLocationLabel: 'Select Location',
     activeVendorId: null,
     activeVendorName: null,
     activeVendorImage: null,
@@ -159,9 +159,20 @@ function reducer(state: AppState, action: Action): AppState {
         }
         case 'SET_LOCATION':
             return { ...state, currentLocation: action.payload.location, currentLocationLabel: action.payload.label };
-        case 'ADD_TAG':
-            // Avoid adding same vendor twice for now? Or keep it simple.
-            return { ...state, tags: [...state.tags, action.payload] };
+        case 'ADD_TAG': {
+            const newTag = action.payload;
+            const exists = state.tags.some(tag => {
+                const tagId = tag.productId || tag.id;
+                const newId = newTag.productId || newTag.id;
+                if (newTag.isProduct) {
+                    return tag.isProduct && tagId === newId && tag.vendorId === newTag.vendorId;
+                } else {
+                    return !tag.isProduct && tag.vendorId === newTag.vendorId;
+                }
+            });
+            if (exists) return state;
+            return { ...state, tags: [...state.tags, newTag] };
+        }
         case 'REMOVE_TAG': {
             const tagToRemove = state.tags[action.payload];
             const nextTags = state.tags.filter((_, i) => i !== action.payload);
